@@ -1,6 +1,5 @@
 <div align="center">
   <br/>
-  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23E31837'/%3E%3Ctext x='16' y='23' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'%3EK%3C/text%3E%3C/svg%3E" alt="HK Bus Tracker" width="80" />
   <h1>🚌 HK Bus Tracker</h1>
   <h3>香港巴士動態 — 即時九巴路線預計到站時間</h3>
   <p>
