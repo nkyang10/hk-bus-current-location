@@ -148,25 +148,6 @@ test.describe('HK Bus Tracker - Bus Icon Logic', () => {
         expect(newIcons).toBeGreaterThanOrEqual(0);
       });
 
-      test('should display map with stop markers', async ({ page }) => {
-        const mapContainer = page.locator('#routeMap');
-        await expect(mapContainer).toBeAttached();
-
-        // Toggle map if hidden
-        const mapToggle = page.locator('.map-toggle');
-        if (await mapToggle.count() > 0) {
-          const text = await mapToggle.textContent();
-          if (text.includes('顯示')) {
-            await mapToggle.click();
-            await page.waitForTimeout(1000);
-          }
-        }
-
-        const markers = await page.locator('.leaflet-marker-icon').count();
-        console.log(`Route ${route}: ${markers} map markers`);
-        expect(markers).toBeGreaterThan(0);
-      });
-
       test('should have multi-service-type badges if applicable', async ({ page }) => {
         const badge = page.locator('.svc-badge');
         const badgeCount = await badge.count();

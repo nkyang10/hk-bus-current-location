@@ -1,6 +1,6 @@
 /**
  * BusTrackerApp — main application controller.
- * Parses URL params, orchestrates RouteManager, EtaManager, MapManager, UIManager.
+ * Parses URL params, orchestrates RouteManager, EtaManager, UIManager.
  */
 class BusTrackerApp {
   constructor() {
@@ -8,7 +8,6 @@ class BusTrackerApp {
     this.api = new ApiClient()
     this.routeMgr = new RouteManager(this.api)
     this.etaMgr = new EtaManager(this.api)
-    this.mapMgr = new MapManager()
     this.ui = new UIManager(this.lang)
 
     this._route = ''
@@ -57,15 +56,6 @@ class BusTrackerApp {
       if (this._route) this._navigate(this._route, this._bound)
     })
 
-    $(document).on('ui:toggleMap', () => {
-      this.ui.toggleMap()
-      this.mapMgr.invalidateSize()
-    })
-
-    $(document).on('map:show', () => {
-      this.mapMgr.invalidateSize()
-    })
-
     $(document).on('eta:loading', (e, v) => {
       this.ui.showEtaLoading(v)
     })
@@ -100,7 +90,6 @@ class BusTrackerApp {
         }).join('\n')
         Logger.map('BUS_ICONS', `${placements.mapPositions.length} buses\n${iconLog}`)
 
-        this.mapMgr.render(stops, placements.mapPositions)
       }
       this.ui.renderStopList(stops, map, placements)
 
@@ -170,9 +159,6 @@ class BusTrackerApp {
     this._bindRouteEvents()
     this.ui.showStopListLoading()
 
-    // Init map container
-    this.mapMgr.init('routeMap')
-
     try {
       await this.routeMgr.load(route, bound)
 
@@ -184,7 +170,6 @@ class BusTrackerApp {
       this.ui.updateBoundToggle(bound)
       this.ui.updateRouteHeaderSvc(types)
       this.ui.renderStopList(stops, this.etaMgr.getEtaMap())
-      this.mapMgr.render(stops)
 
       // Start ETA polling — pass current bound to filter direction
       this.etaMgr.start(route, bound, types)

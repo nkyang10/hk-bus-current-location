@@ -7,7 +7,6 @@ class UIManager {
     this.lang = lang
     this._debugOpen = false
     this._logInterval = null
-    this._mapVisible = true
     this._busAtStop = new Set()
     this._busBetween = []
   }
@@ -80,14 +79,6 @@ class UIManager {
           <button class="bound-btn ${bound === 'I' ? 'active' : ''}" data-bound="I">${this.lang.t('返程 Inbound', 'Inbound', '返程 Inbound')}</button>
         </div>
 
-        <div class="map-toggle" id="mapToggle">
-          <span>${this.lang.t('顯示地圖', 'Show map', '显示地图')}</span>
-          <span class="map-arrow">▼</span>
-        </div>
-        <div class="map-container" id="mapContainer">
-          <div id="routeMap"></div>
-        </div>
-
         <div class="eta-bar" id="etaBar" style="display:none">
           <div class="spinner"></div>
           <span>${this.lang.t('更新中...', 'Updating...', '更新中...')}</span>
@@ -111,7 +102,6 @@ class UIManager {
       const b = $(e.currentTarget).data('bound')
       $(document).trigger('nav:bound', [b])
     })
-    $('#mapToggle').on('click', () => $(document).trigger('ui:toggleMap'))
   }
 
   updateRouteInfo(info) {
@@ -229,24 +219,6 @@ class UIManager {
 
   showEtaLoading(v) {
     $('#etaBar').toggle(v)
-  }
-
-  // ---------- Map toggle ----------
-
-  toggleMap() {
-    this._mapVisible = !this._mapVisible
-    const $container = $('#mapContainer')
-    const $toggle = $('#mapToggle')
-    if (this._mapVisible) {
-      $container.slideDown(300)
-      $toggle.find('span:last').text('▲')
-      $toggle.find('span:first').text(this.lang.t('隱藏地圖', 'Hide map', '隐藏地图'))
-      $(document).trigger('map:show')
-    } else {
-      $container.slideUp(300)
-      $toggle.find('span:last').text('▼')
-      $toggle.find('span:first').text(this.lang.t('顯示地圖', 'Show map', '显示地图'))
-    }
   }
 
   // ---------- Debug panel ----------

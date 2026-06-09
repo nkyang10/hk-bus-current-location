@@ -104,16 +104,6 @@ a { color: #E31837; }
 .bound-btn.active { background: #E31837; color: #fff; border-color: #E31837; }
 .bound-btn:hover:not(.active) { border-color: #9ca3af; }
 
-/* Map Toggle & Container */
-.map-toggle {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 6px 16px; background: #f3f4f6; font-size: 11px; color: #6b7280;
-  cursor: pointer; user-select: none;
-}
-.map-toggle:hover { background: #e5e7eb; }
-.map-container { display: none; }
-.map-container #routeMap { height: 280px; width: 100%; background: #e5e7eb; }
-
 /* ETA Loading Bar */
 .eta-bar {
   display: flex; align-items: center; justify-content: center; gap: 8px;
