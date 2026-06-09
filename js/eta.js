@@ -23,11 +23,11 @@ class EtaManager {
   isLoading() { return this._loading }
 
   /**
-   * Determines bus icon placement PER BUS (eta_seq), using DISPLAYED minutes.
-   * Each active bus gets its own icon — at its closest stop or between stops.
+   * Determines bus icon placement using per-stop DISPLAYED minutes.
+   * Finds the single stop with the smallest displayed minutes (closest bus).
    *
-   *   diffMin <= 1 → 🚌 AT that stop
-   *   diffMin >= 2 → 🚌 BETWEEN prev stop and that stop
+   *   diffMin <= 1 → 🚌 AT that stop (shows "到站" or "1 分鐘")
+   *   diffMin >= 2 → 🚌 BETWEEN prev stop and that stop (shows "2+ 分鐘")
    */
   computePlacements(stops) {
     const atStop = new Set()
@@ -37,62 +37,56 @@ class EtaManager {
     if (!stops || stops.length < 2) return { atStop, between, mapPositions }
 
     const stopCoords = {}
-    stops.forEach(s => { stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) } })
-
-    // Group ETA by bus (eta_seq), filtered by current bound
-    const buses = {}
-    this._allEta.forEach(eta => {
-      if (eta.dir !== this._bound) return
-      if (!eta.eta) return
-      const vid = `${eta.service_type}-${eta.eta_seq}`
-      if (!buses[vid]) buses[vid] = []
-      buses[vid].push({ seq: parseInt(eta.seq, 10), eta: new Date(eta.eta) })
-    })
-
+    const stopMinutes = {} // seq → displayed minutes (Math.floor)
     const now = Date.now()
 
-    for (const vid of Object.keys(buses)) {
-      const sorted = buses[vid].sort((a, b) => a.seq - b.seq)
+    stops.forEach(s => {
+      stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) }
 
-      // Compute displayed minutes (Math.floor) for each stop this bus serves
-      let bestSeq = null, bestMin = Infinity
-      for (const s of sorted) {
-        const diffMs = s.eta.getTime() - now
-        if (diffMs < -120000) continue // departed >2min ago
-        const min = Math.floor(diffMs / 60000)
-        if (min < 0 && diffMs < -60000) continue // negative floor with <1min grace
-        const adjMin = min < 0 ? 0 : min
-        if (adjMin < bestMin) {
-          bestMin = adjMin
-          bestSeq = s.seq
-        }
+      // Find nearest future ETA at this stop (from bound-filtered etaMap)
+      const items = (this._etaMap[String(s.seq)] || []).filter(e => e.eta)
+      const future = items
+        .map(e => ({ eta: new Date(e.eta) }))
+        .filter(e => e.eta.getTime() > now - 120000)
+        .sort((a, b) => a.eta.getTime() - b.eta.getTime())
+
+      if (future.length) {
+        const diffMs = future[0].eta.getTime() - now
+        stopMinutes[s.seq] = Math.floor(diffMs / 60000)
       }
+    })
 
-      if (bestSeq === null) continue // no valid stop for this bus
+    // Find the single stop with the smallest displayed minutes
+    const seqs = stops.map(s => s.seq).filter(s => stopMinutes[s] !== undefined)
+    if (!seqs.length) return { atStop, between, mapPositions }
 
-      const bestIdx = stops.findIndex(s => s.seq === bestSeq)
-      Logger.api('PLACEMENT', `Bus ${vid}: closest at stop ${bestSeq} (${bestMin} min)`)
+    const bestSeq = seqs.reduce((a, b) => stopMinutes[a] < stopMinutes[b] ? a : b)
+    const bestMin = stopMinutes[bestSeq]
+    const bestIdx = stops.findIndex(s => s.seq === bestSeq)
 
-      if (bestMin <= 1) {
+    Logger.api('PLACEMENT', `closest bus at stop ${bestSeq} (${bestMin} min)`)
+
+    if (bestMin <= 1) {
+      // 🚌 AT this stop — arriving in 0-1 minutes
+      atStop.add(bestSeq)
+      const coord = stopCoords[bestSeq]
+      if (coord && !isNaN(coord.lat)) {
+        mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
+      }
+    } else {
+      // 🚌 BETWEEN previous and this stop — 2+ minutes away
+      const prevSeq = bestIdx > 0 ? stops[bestIdx - 1].seq : null
+      if (prevSeq !== null) {
         atStop.add(bestSeq)
-        const coord = stopCoords[bestSeq]
-        if (coord && !isNaN(coord.lat)) {
-          mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
-        }
-      } else {
-        const prevSeq = bestIdx > 0 ? stops[bestIdx - 1].seq : null
-        if (prevSeq !== null) {
-          atStop.add(bestSeq)
-          between.push({ fromSeq: prevSeq, toSeq: bestSeq })
-          const from = stopCoords[prevSeq]
-          const to = stopCoords[bestSeq]
-          if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
-            mapPositions.push({
-              lat: from.lat + (to.lat - from.lat) * 0.5,
-              lng: from.lng + (to.lng - from.lng) * 0.5,
-              type: 'between', fromSeq: prevSeq, toSeq: bestSeq, progress: 0.5,
-            })
-          }
+        between.push({ fromSeq: prevSeq, toSeq: bestSeq })
+        const from = stopCoords[prevSeq]
+        const to = stopCoords[bestSeq]
+        if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
+          mapPositions.push({
+            lat: from.lat + (to.lat - from.lat) * 0.5,
+            lng: from.lng + (to.lng - from.lng) * 0.5,
+            type: 'between', fromSeq: prevSeq, toSeq: bestSeq, progress: 0.5,
+          })
         }
       }
     }
