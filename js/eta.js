@@ -40,16 +40,22 @@ class EtaManager {
     const now = new Date()
     const positions = []
 
+    const BETWEEN_THRESHOLD_MS = 90 * 1000 // 90 seconds
+
     for (const vid of Object.keys(buses)) {
       const stops = buses[vid].sort((a, b) => a.seq - b.seq)
+      const nowTime = now.getTime()
+      let busPlaced = false
+
+      // First pass: detect bus between two stops
       for (let i = 0; i < stops.length - 1; i++) {
         const cur = stops[i]
         const next = stops[i + 1]
         if (next.seq - cur.seq !== 1) continue
         const curTime = cur.eta.getTime()
         const nextTime = next.eta.getTime()
-        const nowTime = now.getTime()
-        if (nowTime >= curTime && nowTime < nextTime && nextTime > curTime) {
+        if (nextTime <= curTime) continue
+        if (nowTime >= curTime && nowTime < nextTime) {
           const progress = (nowTime - curTime) / (nextTime - curTime)
           const from = stopCoords[cur.seq]
           const to = stopCoords[next.seq]
@@ -61,6 +67,33 @@ class EtaManager {
               fromSeq: cur.seq,
               toSeq: next.seq,
               progress,
+            })
+            busPlaced = true
+          }
+        }
+      }
+
+      // Second pass: if not found between stops, check if bus is AT a stop
+      if (!busPlaced) {
+        let closest = null
+        let closestDiff = Infinity
+        for (const s of stops) {
+          const diff = Math.abs(s.eta.getTime() - nowTime)
+          if (diff < closestDiff) {
+            closestDiff = diff
+            closest = s
+          }
+        }
+        if (closest && closestDiff <= BETWEEN_THRESHOLD_MS) {
+          const coord = stopCoords[closest.seq]
+          if (coord && !isNaN(coord.lat)) {
+            positions.push({
+              lat: coord.lat,
+              lng: coord.lng,
+              etaSeq: vid,
+              fromSeq: closest.seq,
+              toSeq: closest.seq,
+              progress: 0,
             })
           }
         }

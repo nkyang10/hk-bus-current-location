@@ -17,7 +17,10 @@ class UIManager {
     const between = []
 
     busPositions.forEach(bp => {
-      if (bp.progress < 0.15) {
+      if (bp.fromSeq === bp.toSeq) {
+        // Bus exactly AT this stop
+        atStop.add(bp.fromSeq)
+      } else if (bp.progress < 0.15) {
         atStop.add(bp.fromSeq)
       } else if (bp.progress > 0.85) {
         atStop.add(bp.toSeq)
