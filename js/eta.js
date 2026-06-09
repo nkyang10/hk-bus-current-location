@@ -4,7 +4,7 @@
  * Public API: start(route, bound, types), stop(), getEtaMap(), getBusPositions(stops)
  */
 class EtaManager {
-  constructor(api) {
+    constructor(api) {
     this.api = api
     this._etaMap = {}
     this._allEta = []
@@ -15,7 +15,8 @@ class EtaManager {
     this._types = []
     this._pollCount = 0
     this._abort = null
-    this._lastTimestamp = null // tracks gov data refresh
+    this._lastTimestamp = null
+    this._converged = false
   }
 
   getEtaMap() { return this._etaMap }
@@ -110,8 +111,10 @@ class EtaManager {
     this._route = route
     this._bound = bound
     this._types = types
+    this._lastTimestamp = null
+    this._converged = false
     this._poll()
-    this._interval = setInterval(() => this._poll(), 30000)
+    this._schedule(10) // fast poll: hunt for fresh gov data
   }
 
   stop() {
@@ -122,6 +125,13 @@ class EtaManager {
     this._types = []
     this._etaMap = {}
     this._allEta = []
+    this._converged = false
+    this._lastTimestamp = null
+  }
+
+  _schedule(sec) {
+    if (this._interval) clearInterval(this._interval)
+    this._interval = setInterval(() => this._poll(), sec * 1000)
   }
 
   async _poll() {
@@ -142,8 +152,14 @@ class EtaManager {
       // Check if gov data actually refreshed since last poll
       const latestTs = all.length ? all[0].data_timestamp : null
       if (latestTs && latestTs === this._lastTimestamp) {
-        Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs})`)
+        Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs}) ${this._converged ? 'settled 60s' : 'fast 10s'}`)
         return // data same as last poll, skip re-render
+      }
+
+      // New data received — render and settle to 60s cadence
+      if (this._lastTimestamp !== null) {
+        this._converged = true
+        this._schedule(60)
       }
       this._lastTimestamp = latestTs
 
