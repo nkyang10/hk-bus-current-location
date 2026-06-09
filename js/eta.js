@@ -39,7 +39,7 @@ class EtaManager {
 
     const now = new Date()
     const positions = []
-    const AT_STOP_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
+    const AT_STOP_THRESHOLD_MS = 90 * 1000 // 1.5 min — aligns with display rounding (Math.round)
 
     for (const vid of Object.keys(buses)) {
       const stops = buses[vid].sort((a, b) => a.seq - b.seq)

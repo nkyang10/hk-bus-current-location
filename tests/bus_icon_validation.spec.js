@@ -82,7 +82,8 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
           expect(nextOk).toBe(true);
         });
 
-        // Log for manual review
+        // Check: "2 分鐘" in display must mean BETWEEN (not AT)
+        // The threshold is 90s matching Math.round display rounding
         console.log(`  Validation: ${analysis.stops.filter(s => !s.hasBusIcon).length} stops without icons`);
 
         // Print ETA debug logs
