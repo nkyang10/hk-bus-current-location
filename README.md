@@ -1,5 +1,6 @@
 <div align="center">
   <br/>
+  <img src="icon.svg" alt="HK Bus Tracker" width="80" />
   <h1>🚌 HK Bus Tracker</h1>
   <h3>香港巴士動態 — 即時九巴路線預計到站時間</h3>
   <p>
