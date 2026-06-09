@@ -17,15 +17,11 @@ class UIManager {
     const between = []
 
     busPositions.forEach(bp => {
-      if (bp.fromSeq === bp.toSeq) {
-        // Bus exactly AT this stop
-        atStop.add(bp.fromSeq)
-      } else if (bp.progress < 0.15) {
-        atStop.add(bp.fromSeq)
-      } else if (bp.progress > 0.85) {
+      if (bp.type === 'at_stop') {
+        // Type 1: Bus arriving at destination stop (< 2 min)
         atStop.add(bp.toSeq)
-      } else {
-        // Bus left fromStop, heading to toStop — only mark destination
+      } else if (bp.type === 'between') {
+        // Type 2: Bus between stops (>= 2 min to next stop)
         atStop.add(bp.toSeq)
         between.push({ fromSeq: bp.fromSeq, toSeq: bp.toSeq })
       }

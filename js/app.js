@@ -92,9 +92,7 @@ class BusTrackerApp {
           const fromName = (stops.find(s => s.seq === bp.fromSeq) || {}).name_en || bp.fromSeq
           const toName = (stops.find(s => s.seq === bp.toSeq) || {}).name_en || bp.toSeq
           const pct = Math.round(bp.progress * 100)
-          const placement = (bp.fromSeq === bp.toSeq) ? `AT ${fromName}`
-            : (bp.progress < 0.15) ? `AT ${fromName}`
-            : (bp.progress > 0.85) ? `AT ${toName}`
+          const placement = (bp.type === 'at_stop') ? `AT ${toName}`
             : `BETWEEN ${fromName} → ${toName}`
           return `  🚌 ${placement} (${pct}% @ ${bp.lat.toFixed(5)},${bp.lng.toFixed(5)})`
         }).join('\n')

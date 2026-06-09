@@ -39,63 +39,61 @@ class EtaManager {
 
     const now = new Date()
     const positions = []
-
-    const BETWEEN_THRESHOLD_MS = 90 * 1000 // 90 seconds
+    const AT_STOP_THRESHOLD_MS = 2 * 60 * 1000 // 2 minutes
 
     for (const vid of Object.keys(buses)) {
       const stops = buses[vid].sort((a, b) => a.seq - b.seq)
       const nowTime = now.getTime()
-      let busPlaced = false
 
-      // First pass: detect bus between two stops
+      // Find the segment where now falls between stop[N].eta and stop[N+1].eta
       for (let i = 0; i < stops.length - 1; i++) {
         const cur = stops[i]
         const next = stops[i + 1]
         if (next.seq - cur.seq !== 1) continue
+        
         const curTime = cur.eta.getTime()
         const nextTime = next.eta.getTime()
+        
+        // Skip if times are invalid
         if (nextTime <= curTime) continue
+        
+        // Check if now is between these two stops
         if (nowTime >= curTime && nowTime < nextTime) {
+          const timeToNext = nextTime - nowTime
           const progress = (nowTime - curTime) / (nextTime - curTime)
-          const from = stopCoords[cur.seq]
-          const to = stopCoords[next.seq]
-          if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
-            positions.push({
-              lat: from.lat + (to.lat - from.lat) * progress,
-              lng: from.lng + (to.lng - from.lng) * progress,
-              etaSeq: vid,
-              fromSeq: cur.seq,
-              toSeq: next.seq,
-              progress,
-            })
-            busPlaced = true
+          
+          // Type 1: AT stop (arriving in < 2 minutes)
+          if (timeToNext < AT_STOP_THRESHOLD_MS) {
+            const coord = stopCoords[next.seq]
+            if (coord && !isNaN(coord.lat)) {
+              positions.push({
+                lat: coord.lat,
+                lng: coord.lng,
+                etaSeq: vid,
+                fromSeq: cur.seq,
+                toSeq: next.seq,
+                progress,
+                type: 'at_stop',
+              })
+            }
           }
-        }
-      }
-
-      // Second pass: if not found between stops, check if bus is AT a stop
-      if (!busPlaced) {
-        let closest = null
-        let closestDiff = Infinity
-        for (const s of stops) {
-          const diff = Math.abs(s.eta.getTime() - nowTime)
-          if (diff < closestDiff) {
-            closestDiff = diff
-            closest = s
+          // Type 2: BETWEEN stops (next stop >= 2 minutes away)
+          else {
+            const from = stopCoords[cur.seq]
+            const to = stopCoords[next.seq]
+            if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
+              positions.push({
+                lat: from.lat + (to.lat - from.lat) * progress,
+                lng: from.lng + (to.lng - from.lng) * progress,
+                etaSeq: vid,
+                fromSeq: cur.seq,
+                toSeq: next.seq,
+                progress,
+                type: 'between',
+              })
+            }
           }
-        }
-        if (closest && closestDiff <= BETWEEN_THRESHOLD_MS) {
-          const coord = stopCoords[closest.seq]
-          if (coord && !isNaN(coord.lat)) {
-            positions.push({
-              lat: coord.lat,
-              lng: coord.lng,
-              etaSeq: vid,
-              fromSeq: closest.seq,
-              toSeq: closest.seq,
-              progress: 0,
-            })
-          }
+          break // Bus found, move to next bus
         }
       }
     }
