@@ -124,12 +124,12 @@ class BusTrackerApp {
   }
 
   _bindLandingEvents() {
-    $('#searchForm').off('submit').on('submit', (e) => {
+    $('#searchForm').off('submit.lp').on('submit.lp', (e) => {
       e.preventDefault()
       const val = $('#searchInput').val().trim().toUpperCase()
       if (val) this._searchRoute(val)
     })
-    $(document).off('click', '.recent-btn').on('click', '.recent-btn', (e) => {
+    $(document).off('click.lp', '.recent-btn').on('click.lp', '.recent-btn', (e) => {
       const r = $(e.currentTarget).data('route')
       const co = $(e.currentTarget).data('company') || 'kmb'
       if (co !== this._company) {
@@ -141,29 +141,29 @@ class BusTrackerApp {
       }
       this._searchRoute(r)
     })
-    $('#langBtn').off('click').on('click', () => {
+    $('#langBtn').off('click.lp').on('click.lp', () => {
       this.lang.toggle()
       this.ui.renderLanding(this._company)
       this._bindLandingEvents()
     })
-    $(document).off('click', '.company-btn').on('click', '.company-btn', (e) => {
+    $(document).off('click.lp', '.company-btn').on('click.lp', '.company-btn', (e) => {
       const co = $(e.currentTarget).data('company')
       $(document).trigger('company:switch', [co])
     })
   }
 
   _bindRouteEvents() {
-    $('#searchForm').off('submit').on('submit', (e) => {
+    $('#searchForm').off('submit.rv').on('submit.rv', (e) => {
       e.preventDefault()
       const val = $('#searchInput').val().trim().toUpperCase()
       if (val) this._searchRoute(val)
     })
-    $('#langBtn').off('click').on('click', () => {
+    $('#langBtn').off('click.rv').on('click.rv', () => {
       this.lang.toggle()
       this.ui.renderLanding(this._company)
       this._bindLandingEvents()
     })
-    $(document).off('click', '.company-btn').on('click', '.company-btn', (e) => {
+    $(document).off('click.rv', '.company-btn').on('click.rv', '.company-btn', (e) => {
       const co = $(e.currentTarget).data('company')
       $(document).trigger('company:switch', [co])
     })
