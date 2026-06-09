@@ -1,6 +1,6 @@
 /**
  * EtaManager — polls ETA for multiple service types, merges by seq.
- * Public API: start(route, bound, types), stop(), getEtaMap()
+ * Public API: start(route, bound, types, stopIds), stop(), getEtaMap()
  */
 class EtaManager {
   constructor(api) {
@@ -12,21 +12,24 @@ class EtaManager {
     this._route = null
     this._bound = null
     this._types = []
+    this._stopIds = []
     this._pollCount = 0
     this._abort = null
     this._lastTimestamp = null
     this._converged = false
+    this._isCtb = api instanceof CtbApiClient
   }
 
   getEtaMap() { return this._etaMap }
   getAllEta() { return this._allEta }
   isLoading() { return this._loading }
 
-  start(route, bound, types) {
+  start(route, bound, types, stopIds) {
     this.stop()
     this._route = route
     this._bound = bound
     this._types = types
+    this._stopIds = stopIds || []
     this._lastTimestamp = null
     this._converged = false
     this._poll()
@@ -39,6 +42,7 @@ class EtaManager {
     this._route = null
     this._bound = null
     this._types = []
+    this._stopIds = []
     this._etaMap = {}
     this._allEta = []
     this._converged = false
@@ -60,12 +64,32 @@ class EtaManager {
     $(document).trigger('eta:loading', [true])
 
     try {
-      const results = await Promise.all(
-        this._types.map(svc => this.api.fetchRouteEta(this._route, svc).catch(() => null))
-      )
-      const all = results.filter(Boolean).flatMap(r => r.data || [])
+      let all = []
+      if (this._isCtb && this._stopIds.length) {
+        const results = await Promise.all(
+          this._stopIds.map(sid =>
+            this.api.fetchEtaForStop(sid, this._route).catch(() => null)
+          )
+        )
+        all = results.filter(Boolean).flatMap(r => r.data || [])
+      } else {
+        const results = await Promise.all(
+          this._types.map(svc => this.api.fetchRouteEta(this._route, svc).catch(() => null))
+        )
+        all = results.filter(Boolean).flatMap(r => r.data || [])
+      }
 
-      const latestTs = all.length ? all[0].data_timestamp : null
+      if (all.length === 0) {
+        Logger.api('ETA_EMPTY', `poll #${this._pollCount}: no ETA data`)
+        if (this._pollCount > 3) {
+          this._schedule(60)
+        }
+        this._allEta = []
+        this._etaMap = {}
+        return
+      }
+
+      const latestTs = all[0].data_timestamp
       if (latestTs && latestTs === this._lastTimestamp) {
         Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs}) ${this._converged ? 'settled 60s' : 'fast 10s'}`)
         return

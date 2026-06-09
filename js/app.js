@@ -5,7 +5,8 @@
 class BusTrackerApp {
   constructor() {
     this.lang = new LanguageManager()
-    this.api = new ApiClient()
+    this._company = this._loadCompany()
+    this.api = this._createApi()
     this.routeMgr = new RouteManager(this.api)
     this.etaMgr = new EtaManager(this.api)
     this.ui = new UIManager(this.lang)
@@ -16,21 +17,56 @@ class BusTrackerApp {
     this._bindEvents()
   }
 
+  _loadCompany() {
+    try { return localStorage.getItem('hk-bus-company') || 'kmb' } catch { return 'kmb' }
+  }
+
+  _saveCompany(v) {
+    try { localStorage.setItem('hk-bus-company', v) } catch {}
+  }
+
+  _createApi() {
+    return this._company === 'ctb' ? new CtbApiClient() : new ApiClient()
+  }
+
+  _switchCompany(company) {
+    if (company === this._company) return
+    this._company = company
+    this._saveCompany(company)
+    this.api = this._createApi()
+    this.routeMgr = new RouteManager(this.api)
+    this.etaMgr = new EtaManager(this.api)
+    this._tearDownRoute()
+    this._route = ''
+    this._bound = 'O'
+    this._updateUrl('', 'O')
+    this.ui.renderLanding(this._company)
+    this._bindLandingEvents()
+  }
+
   init() {
     Logger.ui('INIT', 'App starting')
     this.ui.renderDebugButton()
 
-    // Parse initial URL params
     const params = new URLSearchParams(window.location.search)
     const route = params.get('route') || ''
     const bound = params.get('bound') || 'O'
+    const company = params.get('company') || ''
+
+    if (company && (company === 'kmb' || company === 'ctb')) {
+      this._company = company
+      this._saveCompany(company)
+      this.api = this._createApi()
+      this.routeMgr = new RouteManager(this.api)
+      this.etaMgr = new EtaManager(this.api)
+    }
 
     if (route) {
       this._route = route
       this._bound = bound
       this._navigate(route, bound)
     } else {
-      this.ui.renderLanding()
+      this.ui.renderLanding(this._company)
       this._bindLandingEvents()
     }
   }
@@ -40,7 +76,7 @@ class BusTrackerApp {
       this._tearDownRoute()
       this._updateUrl('', 'O')
       this._route = ''
-      this.ui.renderLanding()
+      this.ui.renderLanding(this._company)
       this._bindLandingEvents()
     })
 
@@ -64,7 +100,6 @@ class BusTrackerApp {
       const stops = this.routeMgr.getStops()
       const allEta = this.etaMgr.getAllEta()
 
-      // Log all stops with ETA info
       const stopLog = stops.map(s => {
         const items = (map[String(s.seq)] || []).filter(e => e.eta)
         const times = items.map(e => {
@@ -75,12 +110,16 @@ class BusTrackerApp {
       }).join('\n')
       Logger.api('STOP_ETA', `${stops.length} stops\n${stopLog}`)
 
-      this.ui.renderStopList(stops, map)
+      this.ui.renderStopList(stops, map, this._company === 'ctb')
     })
 
     $(document).on('debug:toggle', () => {
       if (this.ui._debugOpen) this.ui.closeDebugPanel()
       else this.ui.openDebugPanel()
+    })
+
+    $(document).on('company:switch', (e, company) => {
+      this._switchCompany(company)
     })
   }
 
@@ -92,12 +131,24 @@ class BusTrackerApp {
     })
     $(document).off('click', '.recent-btn').on('click', '.recent-btn', (e) => {
       const r = $(e.currentTarget).data('route')
+      const co = $(e.currentTarget).data('company') || 'kmb'
+      if (co !== this._company) {
+        this._company = co
+        this._saveCompany(co)
+        this.api = this._createApi()
+        this.routeMgr = new RouteManager(this.api)
+        this.etaMgr = new EtaManager(this.api)
+      }
       this._searchRoute(r)
     })
     $('#langBtn').off('click').on('click', () => {
       this.lang.toggle()
-      this.ui.renderLanding()
+      this.ui.renderLanding(this._company)
       this._bindLandingEvents()
+    })
+    $(document).off('click', '.company-btn').on('click', '.company-btn', (e) => {
+      const co = $(e.currentTarget).data('company')
+      $(document).trigger('company:switch', [co])
     })
   }
 
@@ -109,8 +160,12 @@ class BusTrackerApp {
     })
     $('#langBtn').off('click').on('click', () => {
       this.lang.toggle()
-      this.ui.renderLanding()
+      this.ui.renderLanding(this._company)
       this._bindLandingEvents()
+    })
+    $(document).off('click', '.company-btn').on('click', '.company-btn', (e) => {
+      const co = $(e.currentTarget).data('company')
+      $(document).trigger('company:switch', [co])
     })
   }
 
@@ -122,13 +177,13 @@ class BusTrackerApp {
   }
 
   async _navigate(route, bound) {
-    Logger.ui('NAV', `Route ${route} bound=${bound}`)
+    Logger.ui('NAV', `Route ${route} bound=${bound} (${this._company})`)
     this.etaMgr.stop()
 
     this._route = route
     this._bound = bound
 
-    this.ui.renderRouteView(route, bound)
+    this.ui.renderRouteView(route, bound, this._company)
     this._bindRouteEvents()
     this.ui.showStopListLoading()
 
@@ -142,10 +197,11 @@ class BusTrackerApp {
       this.ui.updateRouteInfo(info)
       this.ui.updateBoundToggle(bound)
       this.ui.updateRouteHeaderSvc(types)
-      this.ui.renderStopList(stops, this.etaMgr.getEtaMap())
-
-      // Start ETA polling — pass current bound to filter direction
-      this.etaMgr.start(route, bound, types)
+      this.ui.updateRouteCompany(this._company)
+      this.ui.renderStopList(stops, this.etaMgr.getEtaMap(), this._company === 'ctb')
+ 
+      const stopIds = this._company === 'ctb' ? stops.map(s => s.stopId) : null
+      this.etaMgr.start(route, bound, types, stopIds)
 
     } catch (err) {
       Logger.error('NAV', `${route} failed`, { error: err.message })
@@ -154,6 +210,8 @@ class BusTrackerApp {
       } else {
         this.ui.showError(this.lang.t('載入失敗', 'Load failed', '加载失败'))
       }
+      // Stop ETA polling if navigation failed
+      this.etaMgr.stop()
     }
   }
 
@@ -167,6 +225,7 @@ class BusTrackerApp {
     if (route) {
       params.set('route', route)
       params.set('bound', bound)
+      params.set('company', this._company)
     }
     const qs = params.toString()
     const url = qs ? `${window.location.pathname}?${qs}` : window.location.pathname
@@ -176,7 +235,11 @@ class BusTrackerApp {
   _saveRecent(r) {
     try {
       const stored = JSON.parse(localStorage.getItem('hk-bus-recent') || '[]')
-      const updated = [r, ...stored.filter(x => x !== r)].slice(0, 8)
+      const entry = { route: r, company: this._company }
+      const updated = [entry, ...stored.filter(x => {
+        if (typeof x === 'string') return x !== r
+        return x.route !== r || x.company !== this._company
+      })].slice(0, 8)
       localStorage.setItem('hk-bus-recent', JSON.stringify(updated))
     } catch {}
   }

@@ -14,7 +14,20 @@ a { color: #E31837; }
   min-height: 100vh; display: flex; flex-direction: column;
   background: linear-gradient(180deg, #fff 0%, #f9fafb 100%);
 }
-.landing-header { display: flex; justify-content: flex-end; padding: 12px 16px; }
+.landing-ctb .landing-title { color: #006847; }
+
+/* Company Toggle */
+.company-toggle { display: flex; gap: 4px; }
+.company-toggle-sm .company-btn { font-size: 11px; padding: 3px 8px; }
+.company-btn {
+  font-size: 12px; color: #6b7280; border: 1px solid #d1d5db;
+  border-radius: 20px; padding: 4px 12px; background: #fff;
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.company-btn:hover { background: #f3f4f6; }
+.company-btn.active { background: #E31837; color: #fff; border-color: #E31837; }
+.company-btn[data-company="ctb"].active { background: #006847; border-color: #006847; }
+.landing-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
 .landing-main {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 0 16px; margin-top: -60px;
@@ -34,15 +47,20 @@ a { color: #E31837; }
   padding: 10px 14px; font-size: 16px; outline: none; transition: border-color .2s;
 }
 .search-input:focus { border-color: #E31837; }
+.landing-ctb .search-input:focus { border-color: #006847; }
+.route-view-ctb .search-input:focus { border-color: #006847; }
 .search-btn {
   background: #E31837; color: #fff; border: none; border-radius: 8px;
   padding: 10px 20px; font-weight: 700; cursor: pointer; transition: background .2s;
 }
+.landing-ctb .search-btn { background: #006847; }
+.landing-ctb .search-btn:hover { background: #005538; }
 .search-btn:hover { background: #c0152e; }
 .search-btn-small {
   background: #E31837; color: #fff; border: none; border-radius: 6px;
   padding: 6px 14px; font-weight: 700; font-size: 13px; cursor: pointer;
 }
+.route-view-ctb .search-btn-small { background: #006847; }
 
 .recent-section { margin-top: 24px; width: 100%; max-width: 400px; }
 .recent-label { font-size: 11px; color: #9ca3af; margin-bottom: 8px; padding: 0 4px; }
@@ -53,6 +71,7 @@ a { color: #E31837; }
   transition: all .15s; box-shadow: 0 1px 2px rgba(0,0,0,.05);
 }
 .recent-btn:hover { border-color: #E31837; color: #E31837; }
+.landing-ctb .recent-btn:hover { border-color: #006847; color: #006847; }
 
 /* ===== Route View ===== */
 .route-view { display: flex; flex-direction: column; min-height: 100vh; }
@@ -61,6 +80,9 @@ a { color: #E31837; }
 .route-header {
   background: linear-gradient(135deg, #E31837 0%, #c0152e 100%);
   color: #fff; padding: 12px 16px;
+}
+.route-header-ctb {
+  background: linear-gradient(135deg, #006847 0%, #008c5a 100%);
 }
 .route-header-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .route-title-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -102,6 +124,7 @@ a { color: #E31837; }
   cursor: pointer; transition: all .15s;
 }
 .bound-btn.active { background: #E31837; color: #fff; border-color: #E31837; }
+.route-view-ctb .bound-btn.active { background: #006847; border-color: #006847; }
 .bound-btn:hover:not(.active) { border-color: #9ca3af; }
 
 /* ETA Loading Bar */
@@ -128,6 +151,7 @@ a { color: #E31837; }
 .seq-eta-due .stop-seq, .seq-eta-arriving .stop-seq { background: #22c55e; animation: pulse 1.5s infinite; }
 .seq-eta-soon .stop-seq { background: #f97316; }
 .seq-eta-normal .stop-seq { background: #E31837; }
+.route-view-ctb .seq-eta-normal .stop-seq { background: #006847; }
 .stop-line { width: 2px; flex: 1; min-height: 16px; background: #e5e7eb; }
 
 .stop-info-col { flex: 1; min-width: 0; }
@@ -160,6 +184,7 @@ a { color: #E31837; }
   width: 24px; height: 24px; border: 3px solid #e5e7eb; border-top-color: #E31837;
   border-radius: 50%; animation: spin .6s linear infinite; margin-bottom: 8px;
 }
+.route-view-ctb .spinner { border-top-color: #006847; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
 
@@ -173,7 +198,9 @@ a { color: #E31837; }
   background: #E31837; color: #fff; border: none; border-radius: 8px;
   padding: 8px 20px; font-weight: 600; cursor: pointer;
 }
+.route-view-ctb .retry-btn { background: #006847; }
 .retry-btn:hover { background: #c0152e; }
+.route-view-ctb .retry-btn:hover { background: #005538; }
 
 /* Footer */
 .route-footer {

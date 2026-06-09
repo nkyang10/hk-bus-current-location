@@ -11,24 +11,41 @@ class UIManager {
 
   // ---------- Top-level render ----------
 
-  renderLanding() {
+  renderLanding(company) {
+    const co = company || 'kmb'
     const recent = this._getRecent()
+    const isCtb = co === 'ctb'
+    const title = isCtb
+      ? this.lang.t('城巴即時到站', 'CTB Bus Tracker', '城巴即时到站')
+      : this.lang.t('香港巴士動態', 'HK Bus Tracker', '香港巴士动态')
+    const sub = isCtb
+      ? this.lang.t('即時查詢城巴路線預計到站時間', 'Real-time CTB bus arrival estimates', '即时查询城巴路线预计到站时间')
+      : this.lang.t('即時查詢九巴及龍運路線預計到站時間', 'Real-time KMB & LWB bus arrival estimates', '即时查询九巴及龙运路线预计到站时间')
+    const placeholder = this.lang.t('輸入路線 e.g. 1, 5B, 10', 'Search route... e.g. 1, 5B, 10', '输入路线 e.g. 1, 5B, 10')
+    const dataSrc = isCtb
+      ? this.lang.t('資料來源: data.gov.hk / 城巴 CTB', 'Data source: data.gov.hk / CTB', '数据来源: data.gov.hk / 城巴 CTB')
+      : this.lang.t('資料來源: data.gov.hk / 九巴 KMB', 'Data source: data.gov.hk / KMB', '数据来源: data.gov.hk / 九巴 KMB')
+
     $('#app').html(`
-      <div class="landing">
+      <div class="landing ${isCtb ? 'landing-ctb' : ''}">
         <header class="landing-header">
+          <div class="company-toggle">
+            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</button>
+            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
+          </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
         </header>
         <main class="landing-main">
           <div class="landing-icon">🚌</div>
-          <h1 class="landing-title">${this.lang.t('香港巴士動態', 'HK Bus Tracker', '香港巴士动态')}</h1>
-          <p class="landing-sub">${this.lang.t('即時查詢九巴及龍運路線預計到站時間', 'Real-time KMB & LWB bus arrival estimates', '即时查询九巴及龙运路线预计到站时间')}</p>
+          <h1 class="landing-title">${title}</h1>
+          <p class="landing-sub">${sub}</p>
           <form id="searchForm" class="search-form">
-            <input type="text" id="searchInput" class="search-input" placeholder="${this.lang.t('輸入路線 e.g. 1A, 118, 960', 'Search route... e.g. 1A, 118, 960', '输入路线 e.g. 1A, 118, 960')}" autofocus>
+            <input type="text" id="searchInput" class="search-input" placeholder="${placeholder}" autofocus>
             <button type="submit" class="search-btn">${this.lang.t('搜尋', 'GO', '搜寻')}</button>
           </form>
           ${recent.length ? this._renderRecent(recent) : ''}
           <div class="landing-footer">
-            <p>${this.lang.t('資料來源: data.gov.hk / 九巴 KMB', 'Data source: data.gov.hk / KMB', '数据来源: data.gov.hk / 九巴 KMB')}</p>
+            <p>${dataSrc}</p>
             <p>${this.lang.t('每30秒自動更新', 'Auto-refresh every 30s', '每30秒自动更新')}</p>
           </div>
         </main>
@@ -36,26 +53,27 @@ class UIManager {
     `)
   }
 
-  renderRouteView(route, bound, serviceTypes) {
+  renderRouteView(route, bound, company) {
+    const co = company || 'kmb'
+    const isCtb = co === 'ctb'
     const boundLabel = bound === 'O'
       ? this.lang.t('往 Outbound', 'Outbound', '往 Outbound')
       : this.lang.t('返 Inbound', 'Inbound', '返 Inbound')
 
-    const svcBadge = serviceTypes && serviceTypes.length
-      ? `<span class="svc-badge">${serviceTypes.map(s => 'S' + s).join('/')}</span>`
-      : ''
+    const coLabel = isCtb
+      ? this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')
+      : this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')
 
     $('#app').html(`
-      <div class="route-view">
-        <div class="route-header" id="routeHeader">
+      <div class="route-view ${isCtb ? 'route-view-ctb' : ''}">
+        <div class="route-header ${isCtb ? 'route-header-ctb' : ''}" id="routeHeader">
           <div class="route-header-top">
             <div class="route-title-row">
               <span class="route-header-bar">
                 <h1 class="route-number">${route}</h1>
                 <span class="bound-badge">${boundLabel}</span>
-                ${svcBadge}
               </span>
-              <span class="route-company">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</span>
+              <span class="route-company" id="routeCompany">${coLabel}</span>
             </div>
             <div class="route-dest-row">
               <span class="route-dest" id="routeDest">—</span>
@@ -69,6 +87,10 @@ class UIManager {
             <input type="text" id="searchInput" class="search-input toolbar-input" value="${route}" placeholder="${this.lang.t('輸入路線', 'Search route', '输入路线')}">
             <button type="submit" class="search-btn-small">${this.lang.t('GO', 'GO', 'GO')}</button>
           </form>
+          <div class="company-toggle company-toggle-sm">
+            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb" title="KMB">KMB</button>
+            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb" title="CTB">CTB</button>
+          </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
         </div>
 
@@ -90,7 +112,7 @@ class UIManager {
         </div>
 
         <div class="route-footer">
-          <p>Data: data.gov.hk / KMB | ${this.lang.t('每30秒更新', 'Auto-refresh 30s', '每30秒更新')}</p>
+          <p>Data: data.gov.hk / ${coLabel} | ${this.lang.t('每30秒更新', 'Auto-refresh 30s', '每30秒更新')}</p>
         </div>
       </div>
     `)
@@ -101,6 +123,16 @@ class UIManager {
       $(document).trigger('nav:bound', [b])
     })
   }
+
+  updateRouteCompany(company) {
+    const isCtb = company === 'ctb'
+    const label = isCtb ? this.lang.t('城巴 CTB', 'CTB', '城巴 CTB') : this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')
+    $('#routeCompany').text(label)
+    $('#app > .route-view').toggleClass('route-view-ctb', isCtb)
+    $('#app .route-header').toggleClass('route-header-ctb', isCtb)
+  }
+
+
 
   updateRouteInfo(info) {
     if (!info) return
@@ -124,10 +156,13 @@ class UIManager {
 
   // ---------- Stop list ----------
 
-  renderStopList(stops, etaMap) {
+  renderStopList(stops, etaMap, isCtb) {
     const $list = $('#stopList')
     if (!stops || stops.length === 0) {
-      $list.html(`<div class="empty-state">🚌<p>${this.lang.t('沒有站點資料', 'No stops data', '没有站点数据')}</p></div>`)
+      const msg = isCtb
+        ? this.lang.t('暫無站點資料 - 城巴API數據暫不可用', 'CTB stop data currently unavailable', '暂无站点数据 - 城巴API数据暂不可用')
+        : this.lang.t('沒有站點資料', 'No stops data', '没有站点数据')
+      $list.html(`<div class="empty-state">🚌<p>${msg}</p></div>`)
       return
     }
 
@@ -314,20 +349,17 @@ class UIManager {
     try { return JSON.parse(localStorage.getItem('hk-bus-recent') || '[]') } catch { return [] }
   }
 
-  _saveRecent(r) {
-    try {
-      const stored = JSON.parse(localStorage.getItem('hk-bus-recent') || '[]')
-      const updated = [r, ...stored.filter(x => x !== r)].slice(0, 8)
-      localStorage.setItem('hk-bus-recent', JSON.stringify(updated))
-    } catch {}
-  }
-
   _renderRecent(recent) {
     return `
       <div class="recent-section">
         <p class="recent-label">${this.lang.t('最近查詢', 'Recent', '最近查询')}</p>
         <div class="recent-list">
-          ${recent.map(r => `<button class="recent-btn" data-route="${r}">${r}</button>`).join('')}
+          ${recent.map(r => {
+            const route = typeof r === 'string' ? r : r.route
+            const company = typeof r === 'string' ? 'kmb' : (r.company || 'kmb')
+            const label = company === 'ctb' ? `${route}·CTB` : route
+            return `<button class="recent-btn" data-route="${route}" data-company="${company}">${label}</button>`
+          }).join('')}
         </div>
       </div>
     `

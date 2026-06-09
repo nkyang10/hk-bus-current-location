@@ -15,6 +15,7 @@ class RouteManager {
     this._serviceTypes = []
     this._abort = null
     this._cache = {}
+    this._isCtb = api instanceof CtbApiClient
   }
 
   getRouteInfo() { return this._routeInfo }
@@ -22,13 +23,12 @@ class RouteManager {
   getServiceTypes() { return this._serviceTypes }
 
   async load(route, bound) {
-    // Abort any in-flight request
     if (this._abort) this._abort.abort()
     const controller = new AbortController()
     this._abort = controller
     const signal = controller.signal
 
-    const key = `${route}-${bound}`
+    const key = `${this._isCtb ? 'ctb' : 'kmb'}-${route}-${bound}`
     if (this._cache[key]) {
       Logger.route('CACHE', key)
       const c = this._cache[key]
@@ -38,7 +38,7 @@ class RouteManager {
       return
     }
 
-    Logger.route('LOAD', `${route} bound=${bound}`)
+    Logger.route('LOAD', `${route} bound=${bound} (${this._isCtb ? 'CTB' : 'KMB'})`)
 
     const types = await this.api.discoverServiceTypes(route, bound)
     if (signal.aborted) return
@@ -47,17 +47,45 @@ class RouteManager {
     this._serviceTypes = types
     Logger.route('TYPES', `[${types.join(',')}]`)
 
-    // Fetch each service type's route + stops
     const details = (await Promise.all(
       types.map(async svc => {
         if (signal.aborted) return null
         try {
-          const [routeRes, stopsRes] = await Promise.all([
-            this.api.fetchRoute(route, bound, svc),
-            this.api.fetchRouteStops(route, bound, svc),
-          ])
-          if (signal.aborted) return null
-          return { svc, routeData: routeRes.data, routeStops: stopsRes.data || [] }
+          let routeStops = []
+          if (this._isCtb) {
+            const routeRes = await this.api.fetchRoute(route, bound, svc)
+            if (signal.aborted) return null
+            try {
+              const stopsRes = await this.api.fetchRouteStops(route, bound, svc)
+              routeStops = stopsRes.data || []
+              Logger.route('CTB_STOPS', `Fetched ${routeStops.length} stops for ${route}/${bound}`)
+            } catch {
+              Logger.warn('CTB_STOPS', `Route-stop failed for ${route}/${bound}, trying ETA fallback`)
+              try {
+                const etaRes = await this.api.fetchRouteEta(route, svc, bound)
+                const etaData = etaRes.data || []
+                const seen = new Set()
+                routeStops = etaData
+                  .filter(e => {
+                    if (seen.has(e.stop)) return false
+                    seen.add(e.stop)
+                    return true
+                  })
+                  .map(e => ({ stop: e.stop, seq: e.seq, bound: e.dir }))
+                Logger.route('CTB_STOPS', `Derived ${routeStops.length} stops from ETA for ${route}/${bound}`)
+              } catch {
+                Logger.warn('CTB_STOPS', `ETA fallback also failed for ${route}/${bound}`)
+              }
+            }
+            return { svc, routeData: routeRes.data, routeStops }
+          } else {
+            const [routeRes, stopsRes] = await Promise.all([
+              this.api.fetchRoute(route, bound, svc),
+              this.api.fetchRouteStops(route, bound, svc),
+            ])
+            if (signal.aborted) return null
+            return { svc, routeData: routeRes.data, routeStops: stopsRes.data || [] }
+          }
         } catch { return null }
       })
     )).filter(Boolean)
@@ -68,7 +96,6 @@ class RouteManager {
     const primary = details[0]
     this._routeInfo = primary.routeData
 
-    // Merge stops across service types
     const stopSet = new Map()
     const svcMap = {}
 
@@ -82,7 +109,6 @@ class RouteManager {
       }
     }
 
-    // Ordered union: primary stops first, then any extras
     const ordered = []
     const added = new Set()
     for (const rs of primary.routeStops) {
@@ -98,7 +124,6 @@ class RouteManager {
       }
     }
 
-    // Fetch stop details (name, lat/long)
     const stopDetails = (await Promise.all(
       ordered.map(async (stopId, idx) => {
         if (signal.aborted) return null
@@ -124,7 +149,7 @@ class RouteManager {
     this._stops = stopDetails
     this._cache[key] = { routeInfo: this._routeInfo, stops: this._stops, serviceTypes: this._serviceTypes }
 
-    Logger.route('DONE', `${route} bound=${bound} → ${this._stops.length} stops across ${types.length} types`)
+    Logger.route('DONE', `${route} bound=${bound} (${this._isCtb ? 'CTB' : 'KMB'}) → ${this._stops.length} stops across ${types.length} types`)
   }
 
   abort() {
