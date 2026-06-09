@@ -8,14 +8,13 @@ const Logger = (() => {
   const store = []
   let seq = 0
 
-  // Debug snapshot — stores latest data needed for reproducing issues
+  // Debug snapshot — stores latest ETA and stop data
   let _snapshot = {
     currentTime: null,
     route: null,
     bound: null,
     stopCount: 0,
     etaTotalCount: 0,
-    busPositions: [],
     sampleEtaItems: [],
     sampleStops: [],
   }
@@ -71,13 +70,7 @@ const Logger = (() => {
         lines.push(`Time: ${_snapshot.currentTime}`)
         lines.push(`Route: ${_snapshot.route} bound=${_snapshot.bound}`)
         lines.push(`Stops: ${_snapshot.stopCount}, ETA items: ${_snapshot.etaTotalCount}`)
-        lines.push(`Bus positions computed: ${_snapshot.busPositions.length}`)
-        if (_snapshot.busPositions.length) {
-          lines.push('Bus positions:')
-          _snapshot.busPositions.forEach(bp => {
-            lines.push(`  fromSeq=${bp.fromSeq} toSeq=${bp.toSeq} progress=${bp.progress.toFixed(3)} lat=${bp.lat.toFixed(5)} lng=${bp.lng.toFixed(5)}`)
-          })
-        }
+
         if (_snapshot.sampleEtaItems.length) {
           lines.push('Sample ETA items (first 5):')
           _snapshot.sampleEtaItems.forEach(e => {

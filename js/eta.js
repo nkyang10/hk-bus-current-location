@@ -1,6 +1,6 @@
 /**
  * EtaManager — polls ETA for multiple service types, merges by seq.
- * Public API: start(route, bound, types), stop(), getEtaMap(), computePlacements(stops)
+ * Public API: start(route, bound, types), stop(), getEtaMap()
  */
 class EtaManager {
   constructor(api) {
@@ -21,66 +21,6 @@ class EtaManager {
   getEtaMap() { return this._etaMap }
   getAllEta() { return this._allEta }
   isLoading() { return this._loading }
-
-  /**
-   * Per-stop bus placement using DISPLAYED minutes.
-   *
-   * 1. Closest stop (smallest minutes):
-   *      <= 1 → 🚌 AT that stop
-   *      >= 2 → 🚌 BETWEEN prev and that stop
-   * 2. For every consecutive pair (N, N+1):
-   *      IF stop N+1 >= 2 min AND stop N > stop N+1 min
-   *      → bus passed N, heading to N+1 → 🚌 BETWEEN N and N+1
-   */
-  computePlacements(stops) {
-    const atStop = new Set()
-    const between = []
-    const mapPositions = []
-
-    if (!stops || stops.length < 2) return { atStop, between, mapPositions }
-
-    const stopCoords = {}
-    const m = {} // stopMinutes: seq → displayed minutes (Math.floor)
-    const now = Date.now()
-
-    stops.forEach(s => {
-      stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) }
-      const items = (this._etaMap[String(s.seq)] || []).filter(e => e.eta)
-      const future = items
-        .map(e => ({ eta: new Date(e.eta) }))
-        .filter(e => e.eta.getTime() > now - 120000)
-        .sort((a, b) => a.eta.getTime() - b.eta.getTime())
-      if (future.length) {
-        m[s.seq] = Math.floor((future[0].eta.getTime() - now) / 60000)
-      }
-    })
-
-    const seqs = stops.map(s => s.seq).filter(s => m[s] !== undefined)
-    if (!seqs.length) return { atStop, between, mapPositions }
-
-    // 1. Closest stop globally
-    const bestSeq = seqs.reduce((a, b) => m[a] < m[b] ? a : b)
-    const bestMin = m[bestSeq]
-    const bestIdx = stops.findIndex(s => s.seq === bestSeq)
-
-    Logger.api('PLACEMENT', `closest at stop ${bestSeq} (${bestMin} min)`)
-
-    if (bestMin <= 1) {
-      atStop.add(bestSeq)
-      const c = stopCoords[bestSeq]
-      if (c && !isNaN(c.lat)) mapPositions.push({ lat: c.lat, lng: c.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
-    } else {
-      const prev = bestIdx > 0 ? stops[bestIdx - 1].seq : null
-      if (prev !== null) {
-        atStop.add(bestSeq)
-        between.push({ fromSeq: prev, toSeq: bestSeq })
-        const f = stopCoords[prev]; const t = stopCoords[bestSeq]
-        if (f && t && !isNaN(f.lat)) mapPositions.push({ lat: (f.lat + t.lat) / 2, lng: (f.lng + t.lng) / 2, type: 'between', fromSeq: prev, toSeq: bestSeq, progress: 0.5 })
-      }
-    }
-
-    return { atStop, between, mapPositions }
-  }
 
   start(route, bound, types) {
     this.stop()

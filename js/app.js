@@ -64,9 +64,6 @@ class BusTrackerApp {
       const stops = this.routeMgr.getStops()
       const allEta = this.etaMgr.getAllEta()
 
-      // Single call: compute all bus icon placements from raw ETA
-      const placements = this.etaMgr.computePlacements(stops)
-
       // Log all stops with ETA info
       const stopLog = stops.map(s => {
         const items = (map[String(s.seq)] || []).filter(e => e.eta)
@@ -78,31 +75,7 @@ class BusTrackerApp {
       }).join('\n')
       Logger.api('STOP_ETA', `${stops.length} stops\n${stopLog}`)
 
-      // Log all bus icon placements
-      if (placements.mapPositions.length) {
-        const iconLog = placements.mapPositions.map(bp => {
-          const fromName = (stops.find(s => s.seq === bp.fromSeq) || {}).name_en || bp.fromSeq
-          const toName = (stops.find(s => s.seq === bp.toSeq) || {}).name_en || bp.toSeq
-          const pct = Math.round(bp.progress * 100)
-          const placement = (bp.type === 'at_stop') ? `AT ${toName}`
-            : `BETWEEN ${fromName} → ${toName}`
-          return `  🚌 ${placement} (${pct}% @ ${bp.lat.toFixed(5)},${bp.lng.toFixed(5)})`
-        }).join('\n')
-        Logger.map('BUS_ICONS', `${placements.mapPositions.length} buses\n${iconLog}`)
-
-      }
-      this.ui.renderStopList(stops, map, placements)
-
-      // Store debug snapshot for issue reproduction
-      Logger.setSnapshot({
-        route: this._route,
-        bound: this._bound,
-        stopCount: stops.length,
-        etaTotalCount: allEta.length,
-        busPositions: placements.mapPositions,
-        sampleEtaItems: allEta.slice(0, 5),
-        sampleStops: stops.filter((s, i) => i < 3 || i >= stops.length - 3),
-      })
+      this.ui.renderStopList(stops, map)
     })
 
     $(document).on('debug:toggle', () => {

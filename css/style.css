@@ -133,31 +133,7 @@ a { color: #E31837; }
 .stop-info-col { flex: 1; min-width: 0; }
 .stop-name-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .stop-name { font-size: 15px; font-weight: 500; color: #111; }
-.stop-active { background: #f0fdf4; }
 
-/* Bus at station — replaces stop number */
-.stop-bus-at {
-  width: 48px; height: 48px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 26px; background: #22c55e; flex-shrink: 0;
-  animation: pulse 1.5s infinite;
-  box-shadow: 0 0 0 4px #bbf7d0, 0 2px 8px rgba(0,0,0,0.15);
-}
-
-/* Bus between stations — overlay between rows */
-.bus-between {
-  display: flex; align-items: center; justify-content: center;
-  height: 44px; position: relative; margin: -6px 0;
-}
-.bus-between::before {
-  content: ''; position: absolute; left: 24px; right: 0; top: 50%;
-  height: 4px; background: #60a5fa; z-index: 0; border-radius: 2px;
-}
-.bus-between-icon {
-  position: relative; z-index: 1;
-  font-size: 28px; background: #fff;
-  padding: 0 10px; margin-left: 24px;
-}
 .svc-tag {
   font-size: 9px; background: #e5e7eb; color: #6b7280;
   border-radius: 3px; padding: 0 4px; line-height: 14px;
