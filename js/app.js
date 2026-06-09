@@ -118,8 +118,15 @@ class BusTrackerApp {
       else this.ui.openDebugPanel()
     })
 
-    $(document).on('company:switch', (e, company) => {
-      this._switchCompany(company)
+    $(document).on('click', '.company-btn', (e) => {
+      const co = $(e.target).closest('.company-btn').data('company')
+      if (co) this._switchCompany(co)
+    })
+
+    $(document).on('click', '#langBtn', () => {
+      this.lang.toggle()
+      this.ui.renderLanding(this._company)
+      this._bindLandingEvents()
     })
   }
 
@@ -141,11 +148,6 @@ class BusTrackerApp {
       }
       this._searchRoute(r)
     })
-    $('#langBtn').on('click', () => {
-      this.lang.toggle()
-      this.ui.renderLanding(this._company)
-      this._bindLandingEvents()
-    })
   }
 
   _bindRouteEvents() {
@@ -153,11 +155,6 @@ class BusTrackerApp {
       e.preventDefault()
       const val = $('#searchInput').val().trim().toUpperCase()
       if (val) this._searchRoute(val)
-    })
-    $('#langBtn').on('click', () => {
-      this.lang.toggle()
-      this.ui.renderLanding(this._company)
-      this._bindLandingEvents()
     })
   }
 
