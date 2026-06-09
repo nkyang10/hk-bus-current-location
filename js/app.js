@@ -150,8 +150,8 @@ class BusTrackerApp {
       this.ui.renderStopList(stops, this.etaMgr.getEtaMap())
       this.mapMgr.render(stops)
 
-      // Start ETA polling
-      this.etaMgr.start(route, types)
+      // Start ETA polling — pass current bound to filter direction
+      this.etaMgr.start(route, bound, types)
 
     } catch (err) {
       Logger.error('NAV', `${route} failed`, { error: err.message })
