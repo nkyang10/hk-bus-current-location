@@ -18,7 +18,6 @@
     <img src="https://img.shields.io/badge/version-2.1.0-red.svg" alt="Version" />
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/jQuery-3.7-0769AD?logo=jquery" alt="jQuery" />
-    <img src="https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet" alt="Leaflet" />
     <img src="https://img.shields.io/badge/zero-backend-22c55e" alt="Zero Backend" />
     <img src="https://img.shields.io/badge/no%20build-required-8b5cf6" alt="No Build" />
   </p>
@@ -33,9 +32,8 @@
 |---|---|---|
 | **🔍 Route Search** | Search by route number (`1A`, `118`, `960`) |
 | **🏢 Company Toggle** | Switch between KMB (九巴) and CTB (城巴) live data |
-| **⏱ Real-time ETA** | Live countdown per stop, auto-refresh every 30s |
+| **⏱ Real-time ETA** | Live countdown per stop, smart auto-refresh |
 | **🔄 Direction Toggle** | Switch Outbound (往程) / Inbound (返程) |
-| **🗺 Route Map** | Interactive Leaflet map with stop markers + route path |
 | **🔗 URL Shareable** | `?route=118&bound=O&company=kmb` — bookmark any route |
 | **🌐 Multi-language** | 繁體中文 / English / 简体中文 toggle |
 | **📌 Recent Routes** | Quick access to last 8 searches, remembers company context |
@@ -73,7 +71,7 @@ Drop the project folder on **Cloudflare Pages**, **Netlify**, **GitHub Pages**, 
 ```
 ├── index.html           # Single page app (2KB)
 ├── css/
-│   └── style.css        # All styles (~260 lines)
+│   └── style.css        # All styles
 └── js/
     ├── logger.js         # Logger class — ring buffer, copy-to-clipboard
     ├── lang.js           # LanguageManager — i18n toggle (繁/EN/简)
@@ -84,7 +82,7 @@ Drop the project folder on **Cloudflare Pages**, **Netlify**, **GitHub Pages**, 
     └── app.js            # BusTrackerApp — main controller, company toggle
 ```
 
-**Zero build tools.** No package.json, no node_modules, no bundler.
+**Zero build tools for the app.** `package.json` is only used for Playwright tests.
 Each JS file is a single class following OOP separation of concerns.
 
 ---
@@ -132,7 +130,7 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 │  ├── EtaManager (eta.js)                        │
 │  │   ├── KMB: fetchRouteEta() × N types         │
 │  │   └── CTB: fetchEtaForStop() × N stops      │
-│  │   └── polls every 30s                        │
+│  │   └── polls smartly (10s initial, 60s after stable)                        │
 │  ├── UIManager (ui.js)                          │
 │  │   └── jQuery DOM rendering                   │
 │  ├── Logger (logger.js)                         │
@@ -170,7 +168,7 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
    c. Merge: union of all stop IDs, primary order from type 1
    d. For each unique stop: fetchStop() → name, lat, long
 4. EtaManager.start("118", [1, 2, 3]):
-   a. Every 30s: fetchRouteEta for each type
+   a. Smart polling: 10s initially, 60s after data stabilizes
    b. Merge ETA by stop sequence
 5. UIManager renders stop list with ETA countdowns
 ```
@@ -186,7 +184,7 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
    c. fetchRouteStops("10", "outbound") → 37 stops with stop IDs
    d. For each stop: fetchStop(id) → name, lat, long
 4. EtaManager.start("10", [1], stopIds):
-   a. Every 30s: fetchEtaForStop(stopId, "10") for each stop in parallel
+   a. Smart polling: 10s initially, 60s after data stabilizes
    b. Merge ETA by stop sequence
 ```
 
@@ -201,7 +199,7 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 | `ApiClient` | `api.js` | KMB API calls, bound conversion (`O`↔`outbound`), 10s timeout via AbortController |
 | `CtbApiClient` | `api.js` | CTB V2 API calls, uppercase `CTB`, full bound words (`outbound`/`inbound`) |
 | `RouteManager` | `route.js` | Service type discovery, multi-type merge, stop detail fetch, in-memory cache; auto-detects KMB vs CTB |
-| `EtaManager` | `eta.js` | ETA polling (30s), multi-type merge (KMB) / per-stop parallel fetch (CTB), jQuery custom events |
+| `EtaManager` | `eta.js` | ETA polling (10s→60s adaptive), multi-type merge (KMB) / per-stop parallel fetch (CTB), jQuery custom events |
 | `UIManager` | `ui.js` | All DOM via jQuery, landing/route/debug views, company toggle, ETA formatting, error/loading/empty states |
 | `BusTrackerApp` | `app.js` | URL parsing, company selection, event binding, navigation orchestration, history management |
 
@@ -220,7 +218,7 @@ Data source: [data.gov.hk - KMB/LWB ETA](https://data.gov.hk/tc-data/dataset/hk-
 | `GET /route/{r}/{b}/{s}` | Route details (`b` = `outbound`/`inbound`) |
 | `GET /route-stop/{r}/{b}/{s}` | Stops in sequence |
 | `GET /stop/{id}` | Stop name + lat/long |
-| `GET /route-eta/{r}/{s}` | Real-time ETA per route (poll this every 30s) |
+| `GET /route-eta/{r}/{s}` | Real-time ETA per route (smart polling: 10s→60s) |
 
 > **Bound:** Detail endpoints use `outbound`/`inbound`. Responses use `O`/`I`.  
 > **Auth:** None — fully public. **ETA:** ISO 8601 or `null` if no bus scheduled.
@@ -272,10 +270,6 @@ Note: The app was originally KMB-only. CTB routes do not have service types or b
 
 Chrome/Edge block `fetch()` from `file://` for security. Use **Firefox** instead.
 
-### How is the route line drawn?
-
-Stops are connected in sequence with a straight red polyline. KMB's API does not provide road geometry — this is an approximation using stop coordinates.
-
 ---
 
 ## 📄 License
@@ -285,9 +279,5 @@ MIT License. Data belongs to **KMB** / **Citybus Limited** / **HKSAR Government 
 ---
 
 <div align="center">
-  <sub>Built with jQuery + Leaflet + OpenStreetMap</sub>
-  <br/>
-  <sub>Data: <a href="https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etakmb">KMB</a> · <a href="https://data.gov.hk/tc-data/dataset/ctb-eta-transport-realtime-eta">CTB</a> — data.gov.hk</sub>
-  <br/>
-  <sub>Zero backend &bull; Zero build &bull; No npm required</sub>
+  <sub>Built with jQuery — Data: <a href="https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etakmb">KMB</a> · <a href="https://data.gov.hk/tc-data/dataset/ctb-eta-transport-realtime-eta">CTB</a> — data.gov.hk</sub>
 </div>

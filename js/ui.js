@@ -64,6 +64,10 @@ class UIManager {
       ? this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')
       : this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')
 
+    const routeDataSrc = isCtb
+      ? this.lang.t('資料來源: data.gov.hk / 城巴 CTB', 'Data source: data.gov.hk / CTB', '数据来源: data.gov.hk / 城巴 CTB')
+      : this.lang.t('資料來源: data.gov.hk / 九巴 KMB', 'Data source: data.gov.hk / KMB', '数据来源: data.gov.hk / 九巴 KMB')
+
     $('#app').html(`
       <div class="route-view ${isCtb ? 'route-view-ctb' : ''}">
         <div class="route-header ${isCtb ? 'route-header-ctb' : ''}" id="routeHeader">
@@ -85,11 +89,11 @@ class UIManager {
           <form id="searchForm" class="toolbar-search">
             <button type="button" class="back-btn" id="backBtn">‹</button>
             <input type="text" id="searchInput" class="search-input toolbar-input" value="${route}" placeholder="${this.lang.t('輸入路線', 'Search route', '输入路线')}">
-            <button type="submit" class="search-btn-small">${this.lang.t('GO', 'GO', 'GO')}</button>
+            <button type="submit" class="search-btn-small">${this.lang.t('搜尋', 'GO', '搜寻')}</button>
           </form>
           <div class="company-toggle company-toggle-sm">
-            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb">KMB</button>
-            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">CTB</button>
+            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</button>
+            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
         </div>
@@ -112,7 +116,7 @@ class UIManager {
         </div>
 
         <div class="route-footer">
-          <p>Data: data.gov.hk / ${coLabel} | ${this.lang.t('每30秒更新', 'Auto-refresh 30s', '每30秒更新')}</p>
+          <p>${routeDataSrc} | ${this.lang.t('每30秒自動更新', 'Auto-refresh every 30s', '每30秒自动更新')}</p>
         </div>
       </div>
     `)
@@ -241,7 +245,7 @@ class UIManager {
           <div class="debug-body" id="debugBody"></div>
           <div class="debug-footer">
             <span id="debugStats">0 entries</span>
-            <span>v1.0</span>
+            <span>v2.1</span>
           </div>
         </div>
       </div>
@@ -337,7 +341,7 @@ class UIManager {
 
     const extra = etaArr.length > 1 ? `<span class="eta-more">+${etaArr.length - 1}</span>` : ''
     const dest = best.dest_en ? `<span class="eta-dest">${this.lang.t(best.dest_tc, best.dest_en, best.dest_sc)}</span>` : ''
-    const rmk = best.rmk_en && best.rmk_en !== 'Scheduled Bus' ? `<span class="eta-rmk">${best.rmk_en}</span>` : ''
+    const rmk = best.rmk_en && best.rmk_en !== 'Scheduled Bus' ? `<span class="eta-rmk">${this._esc(this.lang.t(best.rmk_tc, best.rmk_en, best.rmk_sc))}</span>` : ''
 
     return {
       cls: `seq-${cls}`,

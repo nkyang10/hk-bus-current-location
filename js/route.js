@@ -60,22 +60,7 @@ class RouteManager {
               routeStops = stopsRes.data || []
               Logger.route('CTB_STOPS', `Fetched ${routeStops.length} stops for ${route}/${bound}`)
             } catch {
-              Logger.warn('CTB_STOPS', `Route-stop failed for ${route}/${bound}, trying ETA fallback`)
-              try {
-                const etaRes = await this.api.fetchRouteEta(route, svc, bound)
-                const etaData = etaRes.data || []
-                const seen = new Set()
-                routeStops = etaData
-                  .filter(e => {
-                    if (seen.has(e.stop)) return false
-                    seen.add(e.stop)
-                    return true
-                  })
-                  .map(e => ({ stop: e.stop, seq: e.seq, bound: e.dir }))
-                Logger.route('CTB_STOPS', `Derived ${routeStops.length} stops from ETA for ${route}/${bound}`)
-              } catch {
-                Logger.warn('CTB_STOPS', `ETA fallback also failed for ${route}/${bound}`)
-              }
+              Logger.warn('CTB_STOPS', `Route-stop failed for ${route}/${bound}`)
             }
             return { svc, routeData: routeRes.data, routeStops }
           } else {
@@ -90,7 +75,7 @@ class RouteManager {
       })
     )).filter(Boolean)
 
-    if (signal.aborted || details.length === 0) return
+    if (signal.aborted) return
     if (details.length === 0) throw new Error('LOAD_FAILED')
 
     const primary = details[0]
@@ -140,7 +125,7 @@ class RouteManager {
         } catch {
           if (signal.aborted) return null
           Logger.warn('STOP', `Fallback for ${stopId}`)
-          return { seq: idx + 1, stopId, serviceTypes: svcMap[stopId] || [1], name_tc: `站點`, name_en: `Stop ${stopId}`, lat: null, long: null }
+          return { seq: idx + 1, stopId, serviceTypes: svcMap[stopId] || [1], name_tc: `站點`, name_en: `Stop ${stopId}`, name_sc: `站点`, lat: null, long: null }
         }
       })
     )).filter(Boolean)

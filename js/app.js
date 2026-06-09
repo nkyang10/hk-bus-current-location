@@ -125,8 +125,12 @@ class BusTrackerApp {
 
     $(document).on('click', '#langBtn', () => {
       this.lang.toggle()
-      this.ui.renderLanding(this._company)
-      this._bindLandingEvents()
+      if (this._route) {
+        this._navigate(this._route, this._bound)
+      } else {
+        this.ui.renderLanding(this._company)
+        this._bindLandingEvents()
+      }
     })
   }
 

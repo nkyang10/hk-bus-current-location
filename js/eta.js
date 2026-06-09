@@ -65,18 +65,30 @@ class EtaManager {
 
     try {
       let all = []
+      let timestamps = []
+
       if (this._isCtb && this._stopIds.length) {
         const results = await Promise.all(
           this._stopIds.map(sid =>
             this.api.fetchEtaForStop(sid, this._route).catch(() => null)
           )
         )
-        all = results.filter(Boolean).flatMap(r => r.data || [])
+        results.forEach(r => {
+          if (r && r.data) {
+            all = all.concat(r.data)
+            if (r.data_timestamp) timestamps.push(r.data_timestamp)
+          }
+        })
       } else {
         const results = await Promise.all(
           this._types.map(svc => this.api.fetchRouteEta(this._route, svc).catch(() => null))
         )
-        all = results.filter(Boolean).flatMap(r => r.data || [])
+        results.forEach(r => {
+          if (r && r.data) {
+            all = all.concat(r.data)
+            if (r.data_timestamp) timestamps.push(r.data_timestamp)
+          }
+        })
       }
 
       if (all.length === 0) {
@@ -89,7 +101,7 @@ class EtaManager {
         return
       }
 
-      const latestTs = all[0].data_timestamp
+      const latestTs = timestamps.length > 0 ? timestamps.sort().pop() : null
       if (latestTs && latestTs === this._lastTimestamp) {
         Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs}) ${this._converged ? 'settled 60s' : 'fast 10s'}`)
         return

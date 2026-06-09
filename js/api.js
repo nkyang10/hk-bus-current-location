@@ -167,10 +167,6 @@ class CtbApiClient {
     return this._fetch(`${this.BASE}/stop/${stopId}`, signal)
   }
 
-  async fetchRouteEta(route, svc, bound) {
-    return { data: [] }
-  }
-
   async fetchEtaForStop(stopId, route) {
     return this._fetch(`${this.BASE}/eta/CTB/${stopId}/${route}`)
   }

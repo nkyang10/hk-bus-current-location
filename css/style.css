@@ -27,7 +27,7 @@ a { color: #E31837; }
 .company-btn:hover { background: #f3f4f6; }
 .company-btn.active { background: #E31837; color: #fff; border-color: #E31837; }
 .company-btn[data-company="ctb"].active { background: #006847; border-color: #006847; }
-.landing-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; }
+.landing-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; position: relative; z-index: 10; }
 .landing-main {
   flex: 1; display: flex; flex-direction: column;
   align-items: center; justify-content: center; padding: 0 16px; margin-top: -60px;
