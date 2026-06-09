@@ -105,7 +105,6 @@ class BusTrackerApp {
       this.ui.renderStopList(stops, map)
 
       // Store debug snapshot for issue reproduction
-      const allEta = this.etaMgr.getAllEta()
       Logger.setSnapshot({
         route: this._route,
         bound: this._bound,
