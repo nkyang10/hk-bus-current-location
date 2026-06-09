@@ -1,6 +1,6 @@
 <div align="center">
   <br/>
-  <img src="v2/public/vite.svg" alt="HK Bus Tracker" width="80" />
+  <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23E31837'/%3E%3Ctext x='16' y='23' font-size='18' font-weight='bold' fill='white' text-anchor='middle' font-family='Arial'%3EK%3C/text%3E%3C/svg%3E" alt="HK Bus Tracker" width="80" />
   <h1>🚌 HK Bus Tracker</h1>
   <h3>香港巴士動態 — 即時九巴路線預計到站時間</h3>
   <p>
@@ -66,18 +66,17 @@ npx http-server -p 8080
 
 ### Option 2: Open directly (Firefox)
 
-Open `v2/index.html` in **Firefox** — Firefox allows `fetch()` from `file://` to CORS-enabled APIs.
+Open `index.html` in **Firefox** — Firefox allows `fetch()` from `file://` to CORS-enabled APIs.
 
 ### Option 3: Deploy to cloud
 
-Drop the `v2/` folder on **Cloudflare Pages**, **Netlify**, or any static host.
+Drop the project folder on **Cloudflare Pages**, **Netlify**, or any static host.
 
 ---
 
 ## 📁 Project Structure
 
 ```
-v2/
 ├── index.html           # Single page app (2KB)
 ├── css/
 │   └── style.css        # All styles (~200 lines)
@@ -216,11 +215,11 @@ Data source: [data.gov.hk - KMB/LWB ETA](https://data.gov.hk/tc-data/dataset/hk-
 ## ☁️ Deploy
 
 ```bash
-# Just upload the v2/ folder to any static host:
+# Just upload the whole folder to any static host:
 # Cloudflare Pages, Netlify, GitHub Pages, Vercel, S3, etc.
 ```
 
-No build step required. The `v2/index.html` works as-is.
+No build step required. The `index.html` works as-is.
 
 ---
 

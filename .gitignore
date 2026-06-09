@@ -25,6 +25,3 @@ Desktop.ini
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# Vite version (deprecated)
-hk-bus-tracker/
