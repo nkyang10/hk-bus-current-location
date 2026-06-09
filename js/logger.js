@@ -1,11 +1,24 @@
 /**
- * Logger — singleton runtime logger with ring buffer.
- * Stores up to MAX_LOG entries, accessible via window.__BUS_LOG.
+ * Logger — singleton runtime logger with ring buffer and debug snapshot.
+ * Stores up to MAX_LOG entries, plus a snapshot of the last ETA + stops data
+ * for reproducing bus position issues.
  */
 const Logger = (() => {
   const MAX_LOG = 500
   const store = []
   let seq = 0
+
+  // Debug snapshot — stores latest data needed for reproducing issues
+  let _snapshot = {
+    currentTime: null,
+    route: null,
+    bound: null,
+    stopCount: 0,
+    etaTotalCount: 0,
+    busPositions: [],
+    sampleEtaItems: [],
+    sampleStops: [],
+  }
 
   function safeStringify(obj) {
     try { return JSON.stringify(obj, null, 2) } catch { return String(obj) }
@@ -37,16 +50,52 @@ const Logger = (() => {
     route(c, m, d) { return add('ROUTE', c, m, d) },
     map(c, m, d) { return add('MAP', c, m, d) },
     ui(c, m, d) { return add('UI', c, m, d) },
+
+    /** Store a debug snapshot for issue reproduction */
+    setSnapshot(snap) { _snapshot = { ...snap, currentTime: new Date().toISOString() } },
+
     getAll() { return [...store] },
     clear() { store.length = 0; seq = 0 },
+
     getPlainText() {
-      return store.map(e => {
+      const lines = store.map(e => {
         let line = `[${new Date(e.ts).toLocaleTimeString()}] ${e.level} ${e.cat}: ${e.msg}`
         if (e.data) line += `\n    data: ${e.data}`
         return line
-      }).join('\n')
+      })
+
+      // Append debug snapshot at the end
+      if (_snapshot.route) {
+        lines.push('')
+        lines.push('=== DEBUG SNAPSHOT (for issue reproduction) ===')
+        lines.push(`Time: ${_snapshot.currentTime}`)
+        lines.push(`Route: ${_snapshot.route} bound=${_snapshot.bound}`)
+        lines.push(`Stops: ${_snapshot.stopCount}, ETA items: ${_snapshot.etaTotalCount}`)
+        lines.push(`Bus positions computed: ${_snapshot.busPositions.length}`)
+        if (_snapshot.busPositions.length) {
+          lines.push('Bus positions:')
+          _snapshot.busPositions.forEach(bp => {
+            lines.push(`  fromSeq=${bp.fromSeq} toSeq=${bp.toSeq} progress=${bp.progress.toFixed(3)} lat=${bp.lat.toFixed(5)} lng=${bp.lng.toFixed(5)}`)
+          })
+        }
+        if (_snapshot.sampleEtaItems.length) {
+          lines.push('Sample ETA items (first 5):')
+          _snapshot.sampleEtaItems.forEach(e => {
+            lines.push(`  seq=${e.seq} dir=${e.dir} eta_seq=${e.eta_seq} eta=${e.eta} rmk=${e.rmk_en || ''} svc=${e.service_type}`)
+          })
+        }
+        if (_snapshot.sampleStops.length) {
+          lines.push('Sample stops (first 3 + last 3):')
+          _snapshot.sampleStops.forEach(s => {
+            lines.push(`  seq=${s.seq} id=${s.stopId} name=${s.name_en} lat=${s.lat} lng=${s.long}`)
+          })
+        }
+      }
+      return lines.join('\n')
     },
+
     get size() { return store.length },
+    get snapshot() { return _snapshot },
   }
 })()
 

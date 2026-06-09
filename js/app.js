@@ -74,10 +74,28 @@ class BusTrackerApp {
       const stops = this.routeMgr.getStops()
       const busPos = this.etaMgr.getBusPositions(stops)
       if (busPos.length) {
+        // Log each bus position with details for debugging
+        busPos.forEach(bp => {
+          const fromName = (stops.find(s => s.seq === bp.fromSeq) || {}).name_en || bp.fromSeq
+          const toName = (stops.find(s => s.seq === bp.toSeq) || {}).name_en || bp.toSeq
+          Logger.map('BUS', `${fromName} → ${toName} (${Math.round(bp.progress * 100)}%)`)
+        })
         this.ui.showBusPositions(busPos, stops)
         this.mapMgr.render(stops, busPos)
       }
       this.ui.renderStopList(stops, map)
+
+      // Store debug snapshot for issue reproduction
+      const allEta = this.etaMgr.getAllEta()
+      Logger.setSnapshot({
+        route: this._route,
+        bound: this._bound,
+        stopCount: stops.length,
+        etaTotalCount: allEta.length,
+        busPositions: busPos,
+        sampleEtaItems: allEta.slice(0, 5),
+        sampleStops: stops.filter((s, i) => i < 3 || i >= stops.length - 3),
+      })
     })
 
     $(document).on('debug:toggle', () => {
