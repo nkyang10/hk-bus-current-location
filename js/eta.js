@@ -111,7 +111,7 @@ class EtaManager {
     this._bound = bound
     this._types = types
     this._poll()
-    this._interval = setInterval(() => this._poll(), 60000) // matches gov update frequency
+    this._interval = setInterval(() => this._poll(), 30000)
   }
 
   stop() {
