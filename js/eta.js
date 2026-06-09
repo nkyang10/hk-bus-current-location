@@ -23,75 +23,83 @@ class EtaManager {
   isLoading() { return this._loading }
 
   /**
-   * Single function that determines where every bus icon should go.
-   * Returns:
-   *   atStop: Set<seq>        — stop numbers whose circle is replaced by 🚌
-   *   between: [{fromSeq,toSeq}] — pairs that get a 🚌 overlay between rows
-   *   mapPositions: [...]     — {lat, lng, type, fromSeq, toSeq, progress} for map
+   * Determines bus icon placement using DISPLAYED minutes (same as stop list).
+   * This guarantees the icon always matches what the user sees.
+   *
+   * For each stop, finds the nearest future bus ETA and computes displayed
+   * minutes using Math.floor (same as UIManager._formatEta).
+   *
+   *   diffMin = 0 → "到站 Due"     → 🚌 AT this stop
+   *   diffMin = 1 → "1 分鐘"       → 🚌 AT this stop (approaching)
+   *   diffMin >= 2 → "2+ 分鐘"     → 🚌 BETWEEN prev stop and this stop
    */
   computePlacements(stops) {
     const atStop = new Set()
     const between = []
     const mapPositions = []
 
-    if (!stops || stops.length < 2 || !this._allEta.length) return { atStop, between, mapPositions }
+    if (!stops || stops.length < 2) return { atStop, between, mapPositions }
 
-    // Build coordinate lookup
+    // Build coord lookup + compute displayed minutes per stop
     const stopCoords = {}
-    stops.forEach(s => { stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) } })
+    const stopMinutes = {} // seq → displayed diffMin (Math.floor)
+    const now = Date.now()
 
-    // Group ETA by bound + bus (eta_seq)
-    const buses = {}
-    this._allEta.forEach(eta => {
-      if (eta.dir !== this._bound) return
-      if (!eta.eta) return
-      const vid = `${eta.service_type}-${eta.eta_seq}`
-      if (!buses[vid]) buses[vid] = []
-      buses[vid].push({ seq: parseInt(eta.seq, 10), eta: new Date(eta.eta) })
+    stops.forEach(s => {
+      stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) }
+
+      // Find nearest future bus ETA at this stop (same as _formatEta)
+      const items = (this._etaMap[String(s.seq)] || []).filter(e => e.eta)
+      const future = items
+        .map(e => ({ eta: new Date(e.eta), raw: e }))
+        .filter(e => e.eta.getTime() > now - 120000) // allow 2min grace for "just departed"
+        .sort((a, b) => a.eta.getTime() - b.eta.getTime())
+
+      if (future.length) {
+        const diffMs = future[0].eta.getTime() - now
+        stopMinutes[s.seq] = Math.floor(diffMs / 60000)
+      }
     })
 
-    const now = Date.now()
-    const AT_MS = 90 * 1000
+    // Find the stop with the smallest displayed minutes (closest bus)
+    const seqs = stops.map(s => s.seq).filter(s => stopMinutes[s] !== undefined)
+    if (!seqs.length) return { atStop, between, mapPositions }
 
-    for (const vid of Object.keys(buses)) {
-      const sorted = buses[vid].sort((a, b) => a.seq - b.seq)
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const cur = sorted[i]
-        const next = sorted[i + 1]
-        if (next.seq - cur.seq !== 1) continue
+    const bestSeq = seqs.reduce((a, b) => stopMinutes[a] < stopMinutes[b] ? a : b)
+    const bestMin = stopMinutes[bestSeq]
+    const bestIdx = stops.findIndex(s => s.seq === bestSeq)
 
-        const curT = cur.eta.getTime()
-        const nextT = next.eta.getTime()
-        if (nextT <= curT) continue
+    Logger.api('PLACEMENT', `closest bus at stop ${bestSeq}: ${bestMin} min`)
 
-        if (now >= curT && now < nextT) {
-          const timeToNext = nextT - now
-          const progress = (now - curT) / (nextT - curT)
+    if (bestMin <= 1) {
+      // Type 1: bus AT this stop (display shows "到站" or "1 分鐘")
+      atStop.add(bestSeq)
+      const coord = stopCoords[bestSeq]
+      if (coord && !isNaN(coord.lat)) {
+        mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
+      }
+    } else {
+      // Type 2: bus BETWEEN previous and this stop (display shows "2+ 分鐘")
+      const prevSeq = bestIdx > 0 ? stops[bestIdx - 1].seq : null
+      if (prevSeq !== null) {
+        atStop.add(bestSeq)
+        between.push({ fromSeq: prevSeq, toSeq: bestSeq })
 
-          Logger.api('BUS_TIME', `Bus ${vid}: stop ${cur.seq}→${next.seq}, now=${new Date(now).toISOString()}, cur=${cur.eta.toISOString()}, next=${next.eta.toISOString()}, timeToNext=${Math.round(timeToNext/1000)}s, progress=${progress.toFixed(3)}`)
+        const from = stopCoords[prevSeq]
+        const to = stopCoords[bestSeq]
+        if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
+          // Estimate progress: if bestMin is minutes to next stop, interpolate
+          // e.g., if stop N shows 5 min and stop N-1 showed 2 min (3 min gap), bus is ~60% of way
+          const prevMin = stopMinutes[prevSeq] !== undefined ? stopMinutes[prevSeq] : bestMin - 3
+          const gap = Math.max(bestMin - prevMin, 1)
+          const elapsed = bestMin - prevMin
+          const progress = gap > 0 ? Math.min(elapsed / gap, 0.95) : 0.5
 
-          if (timeToNext < AT_MS) {
-            // Type 1: AT destination stop
-            atStop.add(next.seq)
-            const coord = stopCoords[next.seq]
-            if (coord && !isNaN(coord.lat)) {
-              mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: cur.seq, toSeq: next.seq, progress })
-            }
-          } else {
-            // Type 2: BETWEEN stops
-            atStop.add(next.seq)
-            between.push({ fromSeq: cur.seq, toSeq: next.seq })
-            const from = stopCoords[cur.seq]
-            const to = stopCoords[next.seq]
-            if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
-              mapPositions.push({
-                lat: from.lat + (to.lat - from.lat) * progress,
-                lng: from.lng + (to.lng - from.lng) * progress,
-                type: 'between', fromSeq: cur.seq, toSeq: next.seq, progress,
-              })
-            }
-          }
-          break
+          mapPositions.push({
+            lat: from.lat + (to.lat - from.lat) * progress,
+            lng: from.lng + (to.lng - from.lng) * progress,
+            type: 'between', fromSeq: prevSeq, toSeq: bestSeq, progress,
+          })
         }
       }
     }
