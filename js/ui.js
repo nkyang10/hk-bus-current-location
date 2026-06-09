@@ -30,8 +30,8 @@ class UIManager {
       <div class="landing ${isCtb ? 'landing-ctb' : ''}">
         <header class="landing-header">
           <div class="company-toggle">
-            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</button>
-            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
+            <button class="company-btn ${!isCtb ? 'active' : ''}" onclick="$(document).trigger('company:switch',['kmb'])">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</button>
+            <button class="company-btn ${isCtb ? 'active' : ''}" onclick="$(document).trigger('company:switch',['ctb'])">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
         </header>
@@ -88,8 +88,8 @@ class UIManager {
             <button type="submit" class="search-btn-small">${this.lang.t('GO', 'GO', 'GO')}</button>
           </form>
           <div class="company-toggle company-toggle-sm">
-            <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb" title="KMB">KMB</button>
-            <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb" title="CTB">CTB</button>
+            <button class="company-btn ${!isCtb ? 'active' : ''}" onclick="$(document).trigger('company:switch',['kmb'])">KMB</button>
+            <button class="company-btn ${isCtb ? 'active' : ''}" onclick="$(document).trigger('company:switch',['ctb'])">CTB</button>
           </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
         </div>
