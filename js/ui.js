@@ -8,16 +8,26 @@ class UIManager {
     this._debugOpen = false
     this._logInterval = null
     this._mapVisible = true
-    this._activeBusSeqs = null
+    this._busAtStop = new Set()
+    this._busBetween = []
   }
 
   showBusPositions(busPositions, stops) {
-    const active = new Set()
+    const atStop = new Set()
+    const between = []
+
     busPositions.forEach(bp => {
-      active.add(bp.fromSeq)
-      active.add(bp.toSeq)
+      if (bp.progress < 0.15) {
+        atStop.add(bp.fromSeq)
+      } else if (bp.progress > 0.85) {
+        atStop.add(bp.toSeq)
+      } else {
+        between.push({ fromSeq: bp.fromSeq, toSeq: bp.toSeq })
+      }
     })
-    this._activeBusSeqs = active
+
+    this._busAtStop = atStop
+    this._busBetween = between
   }
 
   // ---------- Top-level render ----------
@@ -159,20 +169,23 @@ class UIManager {
         ? stop.serviceTypes.map(s => `<span class="svc-tag">${s}</span>`).join('')
         : ''
       const name = this.lang.t(stop.name_tc, stop.name_en, stop.name_sc)
+      const busHere = this._busAtStop && this._busAtStop.has(stop.seq)
 
-      const hasBus = this._activeBusSeqs && this._activeBusSeqs.has(stop.seq)
-      const busIcon = hasBus ? `<span class="bus-at-stop">🚌</span>` : ''
+      // Case 1: bus at station — replace number with bus icon
+      const seqContent = busHere
+        ? '<span class="stop-bus-at">🚌</span>'
+        : `<span class="stop-seq ${etaText.cls}">${idx + 1}</span>`
 
       html += `
-        <div class="stop-row ${hasBus ? 'stop-active' : ''}">
+        <div class="stop-row ${busHere ? 'stop-active' : ''}">
           <div class="stop-seq-col">
-            <div class="stop-seq ${etaText.cls}">${idx + 1}</div>
+            ${seqContent}
             ${idx < stops.length - 1 ? '<div class="stop-line"></div>' : ''}
           </div>
           <div class="stop-info-col">
             <div class="stop-name-row">
               <span class="stop-name">${name}</span>
-              ${svcBadges}${busIcon}
+              ${svcBadges}
             </div>
           </div>
           <div class="stop-eta-col">
@@ -180,6 +193,14 @@ class UIManager {
           </div>
         </div>
       `
+
+      // Case 2: bus between this stop and next — overlay between rows
+      if (idx < stops.length - 1) {
+        const here = this._busBetween && this._busBetween.some(b => b.fromSeq === stop.seq && b.toSeq === stops[idx + 1].seq)
+        if (here) {
+          html += `<div class="bus-between"><span class="bus-between-icon">🚌</span></div>`
+        }
+      }
     })
     $list.html(html)
   }

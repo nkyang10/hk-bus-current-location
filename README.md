@@ -55,22 +55,13 @@
 
 ## 🚀 Quick Start
 
-### Option 1: Local HTTP Server (recommended)
+### Option 1: Open directly (Firefox)
 
-```bash
-# No npm needed — use any static server:
-npx http-server -p 8080
-# Python: python -m http.server 8080
-# Then open http://localhost:8080/?route=118
-```
+Open `index.html` in **Firefox** — Firefox supports `fetch()` from `file://`.
 
-### Option 2: Open directly (Firefox)
+### Option 2: Deploy to cloud
 
-Open `index.html` in **Firefox** — Firefox allows `fetch()` from `file://` to CORS-enabled APIs.
-
-### Option 3: Deploy to cloud
-
-Drop the project folder on **Cloudflare Pages**, **Netlify**, or any static host.
+Drop the project folder on **Cloudflare Pages**, **Netlify**, **GitHub Pages**, or any static host.
 
 ---
 
@@ -235,12 +226,7 @@ Currently only KMB (九巴) and LWB (龍運) data is publicly available via the 
 
 ### Why can't I open `index.html` directly in Chrome?
 
-Chrome blocks `fetch()` from `file://` for security. Use **Firefox** (which allows CORS from file://) or run any static server:
-
-```bash
-npx http-server -p 8080
-python -m http.server 8080
-```
+Chrome/Edge block `fetch()` from `file://` for security. Use **Firefox** instead.
 
 ### How is the route line drawn?
 

@@ -38,15 +38,12 @@
     // Detect file:// protocol — show notice for Chrome/Edge
     if (location.protocol === 'file:' && !navigator.userAgent.includes('Firefox')) {
       document.getElementById('app').innerHTML =
-        '<div style="max-width:480px;margin:60px auto;padding:24px;text-align:center;font-family:sans-serif">' +
+        '<div style="max-width:480px;margin:60px auto;padding:32px 24px;text-align:center;font-family:sans-serif">' +
         '<div style="font-size:48px;margin-bottom:16px">🚌</div>' +
         '<h1 style="font-size:22px;color:#E31837;margin-bottom:8px">請使用 Firefox 開啟</h1>' +
         '<p style="color:#6b7280;font-size:14px;line-height:1.6">' +
-        'Chrome 和 Edge 不允許從本機檔案 (file://) 讀取即時資料。<br><br>' +
-        '請使用 Firefox 開啟此檔案，或執行以下指令啟動簡易伺服器：<br><br>' +
-        '<code style="background:#f3f4f6;padding:8px 16px;border-radius:6px;display:inline-block;font-size:13px">' +
-        'npx http-server -p 8080</code><br><br>' +
-        '然後開啟 <a href="http://localhost:8080">http://localhost:8080</a></p>' +
+        '此網頁需使用 Firefox 瀏覽器開啟，<br>方可直接從本機檔案讀取即時資料。' +
+        '</p>' +
         '</div>'
     } else {
       $(function() {
