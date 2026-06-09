@@ -146,6 +146,7 @@ class UIManager {
     const atStop = placements?.atStop || this._busAtStop || new Set()
     const between = placements?.between || this._busBetween || []
 
+    // Pass 1: render stop list with numbered circles (no bus icons yet)
     let html = ''
     stops.forEach((stop, idx) => {
       const etaArr = etaMap[String(stop.seq)] || []
@@ -154,17 +155,11 @@ class UIManager {
         ? stop.serviceTypes.map(s => `<span class="svc-tag">${s}</span>`).join('')
         : ''
       const name = this.lang.t(stop.name_tc, stop.name_en, stop.name_sc)
-      const busHere = atStop.has(stop.seq)
-
-      // Case 1: bus at station — replace number with bus icon
-      const seqContent = busHere
-        ? '<span class="stop-bus-at">🚌</span>'
-        : `<span class="stop-seq ${etaText.cls}">${idx + 1}</span>`
 
       html += `
-        <div class="stop-row ${busHere ? 'stop-active' : ''}">
+        <div class="stop-row" data-seq="${idx + 1}">
           <div class="stop-seq-col">
-            ${seqContent}
+            <span class="stop-seq ${etaText.cls}">${idx + 1}</span>
             ${idx < stops.length - 1 ? '<div class="stop-line"></div>' : ''}
           </div>
           <div class="stop-info-col">
@@ -178,16 +173,38 @@ class UIManager {
           </div>
         </div>
       `
+    })
+    $list.html(html)
 
-      // Case 2: bus between this stop and next — overlay between rows
-      if (idx < stops.length - 1) {
-        const here = between.some(b => b.fromSeq === stop.seq && b.toSeq === stops[idx + 1].seq)
+    // Pass 2: overlay bus icons on top of rendered list
+    const rows = Array.from($list[0].querySelectorAll('.stop-row'))
+    rows.forEach((row, idx) => {
+      const seq = parseInt(row.getAttribute('data-seq'), 10)
+      const seqCol = row.querySelector('.stop-seq-col')
+
+      if (atStop.has(seq)) {
+        // Replace numbered circle with 🚌 icon
+        const oldSeq = row.querySelector('.stop-seq')
+        if (oldSeq) {
+          const busEl = document.createElement('span')
+          busEl.className = 'stop-bus-at'
+          busEl.textContent = '🚌'
+          seqCol.replaceChild(busEl, oldSeq)
+        }
+        row.classList.add('stop-active')
+      }
+
+      // Insert between-stop overlay after this row
+      if (idx < rows.length - 1) {
+        const here = between.some(b => b.fromSeq === seq && b.toSeq === parseInt(rows[idx + 1].getAttribute('data-seq'), 10))
         if (here) {
-          html += `<div class="bus-between"><span class="bus-between-icon">🚌</span></div>`
+          const bw = document.createElement('div')
+          bw.className = 'bus-between'
+          bw.innerHTML = '<span class="bus-between-icon">🚌</span>'
+          row.parentNode.insertBefore(bw, row.nextSibling)
         }
       }
     })
-    $list.html(html)
   }
 
   showStopListLoading() {
