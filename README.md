@@ -2,9 +2,9 @@
   <br/>
   <img src="icon.svg" alt="HK Bus Tracker" width="80" />
   <h1>🚌 HK Bus Tracker</h1>
-  <h3>香港巴士動態 — 即時九巴路線預計到站時間</h3>
+  <h3>香港巴士動態 — 即時九巴、龍運及城巴路線預計到站時間</h3>
   <p>
-    <strong>Real-time KMB & LWB Bus Arrival Tracking</strong>
+    <strong>Real-time KMB, LWB & CTB Bus Arrival Tracking</strong>
   </p>
   <p>
     <a href="#-features">Features</a> •
@@ -15,7 +15,7 @@
     <a href="#%EF%B8%8F-troubleshooting">Troubleshooting</a>
   </p>
   <p>
-    <img src="https://img.shields.io/badge/version-2.0.0-red.svg" alt="Version" />
+    <img src="https://img.shields.io/badge/version-2.1.0-red.svg" alt="Version" />
     <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
     <img src="https://img.shields.io/badge/jQuery-3.7-0769AD?logo=jquery" alt="jQuery" />
     <img src="https://img.shields.io/badge/Leaflet-1.9-199900?logo=leaflet" alt="Leaflet" />
@@ -30,14 +30,15 @@
 ## ✨ Features
 
 | Feature | Description |
-|---|---|
+|---|---|---|
 | **🔍 Route Search** | Search by route number (`1A`, `118`, `960`) |
+| **🏢 Company Toggle** | Switch between KMB (九巴) and CTB (城巴) live data |
 | **⏱ Real-time ETA** | Live countdown per stop, auto-refresh every 30s |
 | **🔄 Direction Toggle** | Switch Outbound (往程) / Inbound (返程) |
 | **🗺 Route Map** | Interactive Leaflet map with stop markers + route path |
-| **🔗 URL Shareable** | `?route=118&bound=O` — bookmark any route |
+| **🔗 URL Shareable** | `?route=118&bound=O&company=kmb` — bookmark any route |
 | **🌐 Multi-language** | 繁體中文 / English / 简体中文 toggle |
-| **📌 Recent Routes** | Quick access to last 8 searches (localStorage) |
+| **📌 Recent Routes** | Quick access to last 8 searches, remembers company context |
 | **🛠 Multi-Service Merge** | Auto-discovers and merges all service types (e.g. route 118 types 1/2/3) |
 | **🐛 Debug Panel** | Built-in logger with copy-to-clipboard |
 | **📱 Mobile First** | Responsive design for all screen sizes |
@@ -47,9 +48,11 @@
 
 | URL | Description |
 |---|---|
-| `?route=1` | Route 1 outbound — Chuk Yuen Estate → Star Ferry |
-| `?route=118` | Route 118 outbound — 3 service types merged |
-| `?route=960&bound=I` | Route 960 inbound — Exhibition Centre → Tuen Mun |
+| `?route=1` | KMB Route 1 outbound — Chuk Yuen Estate → Star Ferry |
+| `?route=118` | KMB Route 118 outbound — 3 service types merged |
+| `?route=960&bound=I` | KMB Route 960 inbound — Exhibition Centre → Tuen Mun |
+| `?route=10&company=ctb` | CTB Route 10 — Kennedy Town → North Point |
+| `?route=8&bound=I&company=ctb` | CTB Route 8 inbound — Exhibition Centre → Heng Fa Chuen |
 
 ---
 
@@ -70,16 +73,15 @@ Drop the project folder on **Cloudflare Pages**, **Netlify**, **GitHub Pages**, 
 ```
 ├── index.html           # Single page app (2KB)
 ├── css/
-│   └── style.css        # All styles (~200 lines)
+│   └── style.css        # All styles (~260 lines)
 └── js/
     ├── logger.js         # Logger class — ring buffer, copy-to-clipboard
     ├── lang.js           # LanguageManager — i18n toggle (繁/EN/简)
-    ├── api.js            # ApiClient — fetch with timeout + abort
+    ├── api.js            # ApiClient + CtbApiClient — fetch with timeout + abort
     ├── route.js          # RouteManager — discover + merge service types
-    ├── eta.js            # EtaManager — 30s polling
-    ├── map.js            # MapManager — Leaflet wrapper
+    ├── eta.js            # EtaManager — 30s polling (per-route for KMB, per-stop for CTB)
     ├── ui.js             # UIManager — jQuery DOM rendering
-    └── app.js            # BusTrackerApp — main controller
+    └── app.js            # BusTrackerApp — main controller, company toggle
 ```
 
 **Zero build tools.** No package.json, no node_modules, no bundler.
@@ -92,9 +94,10 @@ Each JS file is a single class following OOP separation of concerns.
 ### URL Parameters
 
 | Param | Values | Default | Example |
-|---|---|---|---|
-| `route` | Any KMB route | **required** | `?route=118` |
+|---|---|---|---|---|
+| `route` | Any KMB or CTB route | **required** | `?route=118` |
 | `bound` | `O` (Outbound) / `I` (Inbound) | `O` | `?route=118&bound=I` |
+| `company` | `kmb` / `ctb` | `kmb` | `?route=10&company=ctb` |
 
 > When no `service_type` is specified, the app auto-discovers all service types
 > and merges them into a unified stop list with combined ETA.
@@ -117,7 +120,7 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 ┌───────────────────────────────────────────────┐
 │              Browser (no server)               │
 │                                                 │
-│  index.html?route=118&bound=O                  │
+│  index.html?route=118&bound=O&company=kmb      │
 │       │                                         │
 │       ▼                                         │
 │  BusTrackerApp (app.js)                         │
@@ -127,34 +130,40 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 │  │   ├── ApiClient.fetchRouteStops() × N types  │
 │  │   └── merge stop lists                       │
 │  ├── EtaManager (eta.js)                        │
-│  │   └── ApiClient.fetchRouteEta() × N types    │
+│  │   ├── KMB: fetchRouteEta() × N types         │
+│  │   └── CTB: fetchEtaForStop() × N stops      │
 │  │   └── polls every 30s                        │
-│  ├── MapManager (map.js)                        │
-│  │   └── Leaflet + OpenStreetMap                │
 │  ├── UIManager (ui.js)                          │
 │  │   └── jQuery DOM rendering                   │
 │  ├── Logger (logger.js)                         │
 │  └── LanguageManager (lang.js)                  │
 │                                                 │
+│  Company toggle → creates ApiClient or          │
+│                    CtbApiClient                  │
 └──────────────┬──────────────────────────────────┘
                │ HTTPS (CORS)
                ▼
-┌───────────────────────────────────────────────┐
-│        data.etabus.gov.hk (KMB Open Data)       │
-│                                                 │
-│  /v1/transport/kmb/route/                       │
-│  /v1/transport/kmb/route/{r}/{b}/{s}            │
-│  /v1/transport/kmb/route-stop/{r}/{b}/{s}       │
-│  /v1/transport/kmb/stop/{stop_id}                │
-│  /v1/transport/kmb/route-eta/{r}/{s}            │
-└───────────────────────────────────────────────┘
+┌─────────────────────────┐  ┌──────────────────────────┐
+│  data.etabus.gov.hk     │  │  rt.data.gov.hk           │
+│  (KMB Open Data)        │  │  (CTB Open Data V2)       │
+│                         │  │                           │
+│  /v1/transport/kmb/     │  │  /v2/transport/citybus/   │
+│  ├ route/               │  │  ├ route/CTB              │
+│  ├ route/{r}/{b}/{s}    │  │  ├ route/CTB/{r}         │
+│  ├ route-stop/{r}/{b}/{s}│  │  ├ route-stop/CTB/{r}/  │
+│  ├ stop/{id}            │  │  │   {outbound|inbound}   │
+│  └ route-eta/{r}/{s}    │  │  ├ stop/{id}             │
+│                         │  │  └ eta/CTB/{stop}/{r}    │
+└─────────────────────────┘  └──────────────────────────┘
 ```
 
 ### Data Flow
 
+#### KMB
+
 ```
-1. User opens ?route=118&bound=O
-2. App.jsx parses URL params
+1. User opens ?route=118&bound=O&company=kmb
+2. BusTrackerApp parses URL params
 3. RouteManager.load("118", "O"):
    a. ApiClient.discoverServiceTypes("118", "O") → [1, 2, 3]
    b. For each type: fetch route details + stop list
@@ -163,9 +172,22 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 4. EtaManager.start("118", [1, 2, 3]):
    a. Every 30s: fetchRouteEta for each type
    b. Merge ETA by stop sequence
-5. UIManager renders:
-   - Stop list with ETA countdowns
-   - Map with markers + polyline
+5. UIManager renders stop list with ETA countdowns
+```
+
+#### CTB
+
+```
+1. User opens ?route=10&bound=O&company=ctb
+2. BusTrackerApp creates CtbApiClient
+3. RouteManager.load("10", "O"):
+   a. CtbApiClient.discoverServiceTypes("10") → [1]
+   b. fetchRoute("10") → route detail
+   c. fetchRouteStops("10", "outbound") → 37 stops with stop IDs
+   d. For each stop: fetchStop(id) → name, lat, long
+4. EtaManager.start("10", [1], stopIds):
+   a. Every 30s: fetchEtaForStop(stopId, "10") for each stop in parallel
+   b. Merge ETA by stop sequence
 ```
 
 ---
@@ -176,17 +198,20 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 |---|---|---|
 | `Logger` | `logger.js` | Singleton ring buffer (500 entries), `getPlainText()`, exposed as `window.__BUS_LOG` |
 | `LanguageManager` | `lang.js` | TC/EN/SC toggle, `t(tc, en, sc)` translation, localStorage persistence |
-| `ApiClient` | `api.js` | All KMB API calls, bound conversion (`O`↔`outbound`), 10s timeout via AbortController |
-| `RouteManager` | `route.js` | Service type discovery, multi-type merge, stop detail fetch, in-memory cache |
-| `EtaManager` | `eta.js` | ETA polling (30s), multi-type merge, jQuery custom events (`eta:update`) |
-| `MapManager` | `map.js` | Leaflet init, stop markers, route polyline, bounds fitting |
-| `UIManager` | `ui.js` | All DOM via jQuery, landing/route/debug views, ETA formatting, error/loading/empty states |
-| `BusTrackerApp` | `app.js` | URL parsing, event binding, navigation orchestration, history management |
+| `ApiClient` | `api.js` | KMB API calls, bound conversion (`O`↔`outbound`), 10s timeout via AbortController |
+| `CtbApiClient` | `api.js` | CTB V2 API calls, uppercase `CTB`, full bound words (`outbound`/`inbound`) |
+| `RouteManager` | `route.js` | Service type discovery, multi-type merge, stop detail fetch, in-memory cache; auto-detects KMB vs CTB |
+| `EtaManager` | `eta.js` | ETA polling (30s), multi-type merge (KMB) / per-stop parallel fetch (CTB), jQuery custom events |
+| `UIManager` | `ui.js` | All DOM via jQuery, landing/route/debug views, company toggle, ETA formatting, error/loading/empty states |
+| `BusTrackerApp` | `app.js` | URL parsing, company selection, event binding, navigation orchestration, history management |
 
 ---
 
 ## 🌐 API Reference
 
+### KMB (九巴)
+
+Base: `data.etabus.gov.hk/v1/transport/kmb`  
 Data source: [data.gov.hk - KMB/LWB ETA](https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etakmb)
 
 | Endpoint | Description |
@@ -195,11 +220,28 @@ Data source: [data.gov.hk - KMB/LWB ETA](https://data.gov.hk/tc-data/dataset/hk-
 | `GET /route/{r}/{b}/{s}` | Route details (`b` = `outbound`/`inbound`) |
 | `GET /route-stop/{r}/{b}/{s}` | Stops in sequence |
 | `GET /stop/{id}` | Stop name + lat/long |
-| `GET /route-eta/{r}/{s}` | Real-time ETA (poll this every 30s) |
+| `GET /route-eta/{r}/{s}` | Real-time ETA per route (poll this every 30s) |
 
-> **Bound:** Detail endpoints use `outbound`/`inbound`. Responses use `O`/`I`.
-> The `ApiClient` handles conversion automatically.
+> **Bound:** Detail endpoints use `outbound`/`inbound`. Responses use `O`/`I`.  
 > **Auth:** None — fully public. **ETA:** ISO 8601 or `null` if no bus scheduled.
+
+### CTB (城巴)
+
+Base: `rt.data.gov.hk/v2/transport/citybus`  
+Data source: [data.gov.hk - CTB ETA](https://data.gov.hk/tc-data/dataset/ctb-eta-transport-realtime-eta)
+
+| Endpoint | Description |
+|---|---|
+| `GET /route/CTB` | List all CTB routes (403 routes, no bound field) |
+| `GET /route/CTB/{r}` | Route details |
+| `GET /route-stop/CTB/{r}/{outbound|inbound}` | Stops in sequence (uses full bound words) |
+| `GET /stop/{id}` | Stop name + lat/long (6-digit stop ID, e.g. `002403`) |
+| `GET /eta/CTB/{stop}/{r}` | Real-time ETA per stop (must call for each stop in parallel) |
+
+> **Company ID:** Must be uppercase `CTB` in URL paths.  
+> **Bound:** Use full words `outbound`/`inbound` in URLs; responses use `O`/`I`.  
+> **ETA:** Per-stop endpoint — the app fetches all stops in parallel via `Promise.all`.  
+> **Auth:** None — fully public.
 
 ---
 
@@ -222,7 +264,9 @@ The app has simple UI requirements — it doesn't need virtual DOM, SSR, or a co
 
 ### Does this work for Citybus (城巴)?
 
-Currently only KMB (九巴) and LWB (龍運) data is publicly available via the Government Open Data portal. Citybus does not yet have a public real-time API.
+Yes! CTB (城巴) is now supported using the [data.gov.hk CTB V2 API](https://data.gov.hk/tc-data/dataset/ctb-eta-transport-realtime-eta). Click the **CTB** button in the toolbar to switch. All former NWFB routes merged into CTB since July 2023 are also available under company ID `CTB`.
+
+Note: The app was originally KMB-only. CTB routes do not have service types or bound fields in the route list. Route-stop and ETA use different URL patterns (uppercase `CTB`, full bound words, per-stop ETA).
 
 ### Why can't I open `index.html` directly in Chrome?
 
@@ -236,14 +280,14 @@ Stops are connected in sequence with a straight red polyline. KMB's API does not
 
 ## 📄 License
 
-MIT License. Data belongs to **KMB** / **HKSAR Government Transport Department**.
+MIT License. Data belongs to **KMB** / **Citybus Limited** / **HKSAR Government Transport Department**.
 
 ---
 
 <div align="center">
   <sub>Built with jQuery + Leaflet + OpenStreetMap</sub>
   <br/>
-  <sub>Data: <a href="https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etakmb">data.gov.hk</a></sub>
+  <sub>Data: <a href="https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etakmb">KMB</a> · <a href="https://data.gov.hk/tc-data/dataset/ctb-eta-transport-realtime-eta">CTB</a> — data.gov.hk</sub>
   <br/>
   <sub>Zero backend &bull; Zero build &bull; No npm required</sub>
 </div>
