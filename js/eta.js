@@ -62,6 +62,9 @@ class EtaManager {
           const timeToNext = nextTime - nowTime
           const progress = (nowTime - curTime) / (nextTime - curTime)
           
+          // Log time calculations for debugging
+          Logger.api('BUS_TIME', `Bus ${vid}: stop ${cur.seq}→${next.seq}, now=${now.toISOString()}, cur=${cur.eta.toISOString()}, next=${next.eta.toISOString()}, timeToNext=${Math.round(timeToNext/1000)}s, progress=${progress.toFixed(3)}`)
+          
           // Type 1: AT stop (arriving in < 2 minutes)
           if (timeToNext < AT_STOP_THRESHOLD_MS) {
             const coord = stopCoords[next.seq]
