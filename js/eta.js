@@ -15,6 +15,7 @@ class EtaManager {
     this._types = []
     this._pollCount = 0
     this._abort = null
+    this._lastTimestamp = null // tracks gov data refresh
   }
 
   getEtaMap() { return this._etaMap }
@@ -110,7 +111,7 @@ class EtaManager {
     this._bound = bound
     this._types = types
     this._poll()
-    this._interval = setInterval(() => this._poll(), 30000)
+    this._interval = setInterval(() => this._poll(), 60000) // matches gov update frequency
   }
 
   stop() {
@@ -137,6 +138,15 @@ class EtaManager {
         this._types.map(svc => this.api.fetchRouteEta(this._route, svc).catch(() => null))
       )
       const all = results.filter(Boolean).flatMap(r => r.data || [])
+
+      // Check if gov data actually refreshed since last poll
+      const latestTs = all.length ? all[0].data_timestamp : null
+      if (latestTs && latestTs === this._lastTimestamp) {
+        Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs})`)
+        return // data same as last poll, skip re-render
+      }
+      this._lastTimestamp = latestTs
+
       this._allEta = all
 
       // Build etaMap filtered by current bound
@@ -148,7 +158,7 @@ class EtaManager {
         map[key].push(eta)
       })
       this._etaMap = map
-      Logger.api('ETA', `poll #${this._pollCount}: ${all.length} total, ${Object.keys(map).length} stops (bound=${this._bound})`)
+      Logger.api('ETA', `poll #${this._pollCount}: ${all.length} total, ${Object.keys(map).length} stops (bound=${this._bound}) ts=${latestTs}`)
       $(document).trigger('eta:update', [map])
     } catch (err) {
       if (err.name === 'AbortError') return
