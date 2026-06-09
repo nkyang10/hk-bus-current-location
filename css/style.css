@@ -142,8 +142,9 @@ a { color: #E31837; }
 
 .stop-info-col { flex: 1; min-width: 0; }
 .stop-name-row { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.stop-name { font-size: 13px; font-weight: 500; color: #111; }
-.stop-name-en { font-size: 11px; color: #9ca3af; display: block; margin-top: 1px; }
+.stop-name { font-size: 15px; font-weight: 500; color: #111; }
+.stop-active { background: #f0fdf4; }
+.bus-at-stop { font-size: 14px; margin-left: 2px; }
 .svc-tag {
   font-size: 9px; background: #e5e7eb; color: #6b7280;
   border-radius: 3px; padding: 0 4px; line-height: 14px;

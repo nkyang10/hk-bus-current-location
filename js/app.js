@@ -71,7 +71,13 @@ class BusTrackerApp {
     })
 
     $(document).on('eta:update', (e, map) => {
-      this.ui.renderStopList(this.routeMgr.getStops(), map)
+      const stops = this.routeMgr.getStops()
+      const busPos = this.etaMgr.getBusPositions(stops)
+      if (busPos.length) {
+        this.ui.showBusPositions(busPos, stops)
+        this.mapMgr.render(stops, busPos)
+      }
+      this.ui.renderStopList(stops, map)
     })
 
     $(document).on('debug:toggle', () => {

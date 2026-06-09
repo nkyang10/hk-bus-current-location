@@ -8,6 +8,16 @@ class UIManager {
     this._debugOpen = false
     this._logInterval = null
     this._mapVisible = true
+    this._activeBusSeqs = null
+  }
+
+  showBusPositions(busPositions, stops) {
+    const active = new Set()
+    busPositions.forEach(bp => {
+      active.add(bp.fromSeq)
+      active.add(bp.toSeq)
+    })
+    this._activeBusSeqs = active
   }
 
   // ---------- Top-level render ----------
@@ -150,8 +160,11 @@ class UIManager {
         : ''
       const name = this.lang.t(stop.name_tc, stop.name_en, stop.name_sc)
 
+      const hasBus = this._activeBusSeqs && this._activeBusSeqs.has(stop.seq)
+      const busIcon = hasBus ? `<span class="bus-at-stop">🚌</span>` : ''
+
       html += `
-        <div class="stop-row">
+        <div class="stop-row ${hasBus ? 'stop-active' : ''}">
           <div class="stop-seq-col">
             <div class="stop-seq ${etaText.cls}">${idx + 1}</div>
             ${idx < stops.length - 1 ? '<div class="stop-line"></div>' : ''}
@@ -159,9 +172,8 @@ class UIManager {
           <div class="stop-info-col">
             <div class="stop-name-row">
               <span class="stop-name">${name}</span>
-              ${svcBadges}
+              ${svcBadges}${busIcon}
             </div>
-            ${stop.name_en && stop.name_en !== name ? `<span class="stop-name-en">${stop.name_en}</span>` : ''}
           </div>
           <div class="stop-eta-col">
             ${etaText.html}

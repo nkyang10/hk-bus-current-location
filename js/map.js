@@ -1,12 +1,13 @@
 /**
- * MapManager — Leaflet map with stop markers and route polyline.
- * Public API: init(containerId), render(stops), destroy()
+ * MapManager — Leaflet map with stop markers, route polyline, and live bus positions.
+ * Public API: init(containerId), render(stops, busPositions), invalidateSize(), destroy()
  */
 class MapManager {
   constructor() {
     this._map = null
     this._markers = null
     this._polyline = null
+    this._busLayer = null
   }
 
   init(containerId) {
@@ -16,19 +17,21 @@ class MapManager {
     L.control.zoom({ position: 'bottomright' }).addTo(this._map)
     this._markers = L.layerGroup().addTo(this._map)
     this._polyline = L.layerGroup().addTo(this._map)
-    Logger.map('INIT', 'Map created')
-    // Fix initial render
+    this._busLayer = L.layerGroup().addTo(this._map)
     setTimeout(() => this._map.invalidateSize(), 200)
+    Logger.map('INIT', 'Map created')
   }
 
-  render(stops) {
+  render(stops, busPositions) {
     if (!this._map) return
     this._markers.clearLayers()
     this._polyline.clearLayers()
+    this._busLayer.clearLayers()
 
     const latLngs = []
     const bounds = []
 
+    // Draw stops as numbered markers
     stops.forEach((stop, idx) => {
       const lat = parseFloat(stop.lat)
       const lng = parseFloat(stop.long)
@@ -48,15 +51,36 @@ class MapManager {
       bounds.push([lat, lng])
     })
 
+    // Route polyline
     if (latLngs.length > 1) {
       this._polyline.addLayer(L.polyline(latLngs, { color: '#E31837', weight: 3, opacity: 0.7 }))
     }
 
+    // Draw live bus positions
+    if (busPositions && busPositions.length) {
+      busPositions.forEach(bus => {
+        const busIcon = L.divIcon({
+          className: '',
+          html: `<div style="
+            background:#2563eb; color:white; width:32px; height:32px; border-radius:4px;
+            display:flex; align-items:center; justify-content:center; font-size:16px;
+            border:2px solid white; box-shadow:0 2px 8px rgba(0,0,0,0.4);
+            transform:rotate(90deg);">🚌</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        })
+        const marker = L.marker([bus.lat, bus.lng], { icon: busIcon, zIndexOffset: 1000 })
+          .bindPopup(`<b>Bus ${bus.etaSeq}</b><br/>Stop ${bus.fromSeq} → Stop ${bus.toSeq}<br/>${Math.round(bus.progress * 100)}%`)
+        this._busLayer.addLayer(marker)
+      })
+    }
+
+    // Fit bounds
     if (bounds.length > 0) {
       this._map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 })
     }
 
-    Logger.map('RENDER', `${latLngs.length} markers, ${latLngs.length > 1 ? 'polyline' : 'no polyline'}`)
+    Logger.map('RENDER', `${latLngs.length} stops, ${busPositions ? busPositions.length : 0} buses`)
   }
 
   invalidateSize() {
