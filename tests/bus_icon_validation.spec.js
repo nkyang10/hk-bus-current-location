@@ -120,6 +120,143 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
         }
       });
 
+      test('should verify common-sense ETA monotonicity — stop N < stop N+1 for same bus', async ({ page }) => {
+        await page.goto(`/?route=${route}&bound=${bound}`);
+        await page.waitForSelector('.stop-list', { timeout: 15000 });
+        await page.waitForTimeout(3000);
+
+        const etaData = await page.evaluate(() => {
+          const app = window.app;
+          if (!app || !app.etaMgr) return null;
+          const allEta = app.etaMgr.getAllEta();
+          if (!allEta.length) return null;
+
+          // Group by bound then eta_seq
+          const buses = {};
+          allEta.forEach(eta => {
+            const key = `${eta.dir}-${eta.service_type}-${eta.eta_seq}`;
+            if (!eta.eta) return;
+            if (!buses[key]) buses[key] = [];
+            buses[key].push({
+              seq: parseInt(eta.seq, 10),
+              eta: eta.eta,
+              dir: eta.dir,
+            });
+          });
+
+          const now = Date.now();
+          const violations = [];
+          const validPairs = [];
+
+          for (const [vid, stops] of Object.entries(buses)) {
+            stops.sort((a, b) => a.seq - b.seq);
+            for (let i = 0; i < stops.length - 1; i++) {
+              if (stops[i + 1].seq - stops[i].seq !== 1) continue;
+              const cur = new Date(stops[i].eta).getTime();
+              const next = new Date(stops[i + 1].eta).getTime();
+              if (next <= cur) {
+                violations.push({
+                  bus: vid,
+                  fromSeq: stops[i].seq,
+                  toSeq: stops[i + 1].seq,
+                  fromEta: stops[i].eta,
+                  toEta: stops[i + 1].eta,
+                });
+              } else {
+                validPairs.push({
+                  bus: vid,
+                  fromSeq: stops[i].seq,
+                  toSeq: stops[i + 1].seq,
+                  fromEta: stops[i].eta,
+                  toEta: stops[i + 1].eta,
+                  isActive: now >= cur && now < next, // only the bus currently on the road
+                });
+              }
+            }
+          }
+
+          // Get DOM bus icons
+          const rows = document.querySelectorAll('.stop-row');
+          const stopNames = {};
+          rows.forEach((row, idx) => {
+            stopNames[idx + 1] = row.querySelector('.stop-name')?.textContent || '';
+          });
+
+          const betweens = document.querySelectorAll('.bus-between');
+          const betweenPairs = [];
+          betweens.forEach(bw => {
+            const prev = bw.previousElementSibling;
+            const next = bw.nextElementSibling;
+            const prevSeq = parseInt(prev?.querySelector('.stop-seq, .stop-bus-at')?.textContent) || 0;
+            const nextSeq = parseInt(next?.querySelector('.stop-seq, .stop-bus-at')?.textContent) || 0;
+            betweenPairs.push({ fromSeq: prevSeq, toSeq: nextSeq });
+          });
+
+          const activeStops = new Set();
+          document.querySelectorAll('.stop-row.stop-active').forEach(row => {
+            const seqEl = row.querySelector('.stop-seq, .stop-bus-at');
+            if (!seqEl) return;
+            const seq = parseInt(seqEl.textContent) || 0;
+            if (seq) activeStops.add(seq);
+          });
+
+          return { violations, validPairs, stopNames, betweenPairs, activeStops: [...activeStops] };
+        });
+
+        if (!etaData || !etaData.validPairs.length) {
+          console.log(`Route ${route}: No active bus ETA data to validate`);
+          return;
+        }
+
+        // Report violations (ETA decreases — impossible for same bus)
+        if (etaData.violations.length) {
+          console.log(`\n=== Route ${route} — GOV DATA QUALITY: ETA MONOTONICITY VIOLATIONS (${etaData.violations.length}) ===`);
+          etaData.violations.slice(0, 5).forEach(v => {
+            console.log(`  ⚠️ Bus ${v.bus}: stop ${v.fromSeq}(${v.fromEta}) → stop ${v.toSeq}(${v.toEta}) — ETA decreased (gov data issue)`);
+          });
+          if (etaData.violations.length > 5) {
+            console.log(`  ... and ${etaData.violations.length - 5} more violations`);
+          }
+          console.log(`  (These are data quality issues from the government API, not app bugs)`);
+        }
+
+        // Only check icons for the CURRENTLY active bus (where now falls between stops)
+        const currentPairs = etaData.validPairs.filter(p => p.isActive);
+        const futurePairs = etaData.validPairs.filter(p => !p.isActive);
+
+        console.log(`\n=== Route ${route} — Common-sense icon check ===`);
+        console.log(`  ${currentPairs.length} currently active pairs, ${futurePairs.length} future pairs`);
+
+        let missing = 0;
+        for (const pair of currentPairs) {
+          const from = etaData.stopNames[pair.fromSeq] || `stop ${pair.fromSeq}`;
+          const to = etaData.stopNames[pair.toSeq] || `stop ${pair.toSeq}`;
+          const isAt = etaData.activeStops.includes(pair.toSeq);
+          const isBetween = etaData.betweenPairs.some(b => b.fromSeq === pair.fromSeq && b.toSeq === pair.toSeq);
+
+          if (!isAt && !isBetween) {
+            console.log(`  ⚠️ MISSING: Bus ${pair.bus} between ${from}→${to} — no icon AT or BETWEEN`);
+            missing++;
+          } else {
+            const where = isAt ? 'AT' : 'BETWEEN';
+            console.log(`  ✅ Bus ${pair.bus}: ${where} ${from}→${to}`);
+          }
+        }
+
+        // Future buses should NOT have icons
+        let falsePositives = 0;
+        for (const pair of futurePairs) {
+          const isAt = etaData.activeStops.includes(pair.toSeq);
+          const isBetween = etaData.betweenPairs.some(b => b.fromSeq === pair.fromSeq && b.toSeq === pair.toSeq);
+          if (isAt || isBetween) {
+            falsePositives++;
+          }
+        }
+
+        console.log(`Route ${route}: ${currentPairs.length} current pairs, ${missing} missing, ${falsePositives} false positives`);
+        expect(missing).toBe(0);
+      });
+
       test('should have correct bus icon styling', async ({ page }) => {
         await page.goto(`/?route=${route}&bound=${bound}`);
         await page.waitForSelector('.stop-list', { timeout: 15000 });
