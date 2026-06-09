@@ -24,7 +24,7 @@ class ApiClient {
     Logger.api('FETCH', short)
     const start = Date.now()
     try {
-      const res = await fetch(url, { signal: sig })
+      const res = await fetch(url, { signal: sig, cache: 'no-cache' })
       const elapsed = Date.now() - start
       if (!res.ok) {
         Logger.api('HTTP_ERR', `${short} → ${res.status}`, { status: res.status })
