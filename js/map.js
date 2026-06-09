@@ -62,12 +62,12 @@ class MapManager {
         const busIcon = L.divIcon({
           className: '',
           html: `<div style="
-            background:#2563eb; color:white; width:44px; height:44px; border-radius:6px;
-            display:flex; align-items:center; justify-content:center; font-size:26px;
-            border:3px solid white; box-shadow:0 3px 12px rgba(0,0,0,0.5);
+            background:#2563eb; color:white; width:54px; height:54px; border-radius:8px;
+            display:flex; align-items:center; justify-content:center; font-size:32px;
+            border:3px solid white; box-shadow:0 4px 16px rgba(0,0,0,0.5);
             transform:rotate(90deg);">🚌</div>`,
-          iconSize: [44, 44],
-          iconAnchor: [22, 22],
+          iconSize: [54, 54],
+          iconAnchor: [27, 27],
         })
         const marker = L.marker([bus.lat, bus.lng], { icon: busIcon, zIndexOffset: 1000 })
           .bindPopup(`<b>Bus ${bus.etaSeq}</b><br/>Stop ${bus.fromSeq} → Stop ${bus.toSeq}<br/>${Math.round(bus.progress * 100)}%`)
