@@ -22,8 +22,7 @@ class UIManager {
       } else if (bp.progress > 0.85) {
         atStop.add(bp.toSeq)
       } else {
-        // Bus is between — mark both stops and add overlay
-        atStop.add(bp.fromSeq)
+        // Bus left fromStop, heading to toStop — only mark destination
         atStop.add(bp.toSeq)
         between.push({ fromSeq: bp.fromSeq, toSeq: bp.toSeq })
       }
