@@ -125,15 +125,16 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
         await page.waitForSelector('.stop-list', { timeout: 15000 });
         await page.waitForTimeout(3000);
 
-        const etaData = await page.evaluate(() => {
+        const etaData = await page.evaluate(({ bound }) => {
           const app = window.app;
           if (!app || !app.etaMgr) return null;
           const allEta = app.etaMgr.getAllEta();
           if (!allEta.length) return null;
 
-          // Group by bound then eta_seq
+          // Filter by current bound only, then group by eta_seq
           const buses = {};
           allEta.forEach(eta => {
+            if (eta.dir !== bound) return;
             const key = `${eta.dir}-${eta.service_type}-${eta.eta_seq}`;
             if (!eta.eta) return;
             if (!buses[key]) buses[key] = [];
@@ -147,6 +148,7 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
           const now = Date.now();
           const violations = [];
           const validPairs = [];
+          const foundActive = new Set();
 
           for (const [vid, stops] of Object.entries(buses)) {
             stops.sort((a, b) => a.seq - b.seq);
@@ -163,13 +165,15 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
                   toEta: stops[i + 1].eta,
                 });
               } else {
+                const isActive = now >= cur && now < next && !foundActive.has(vid);
+                if (isActive) foundActive.add(vid);
                 validPairs.push({
                   bus: vid,
                   fromSeq: stops[i].seq,
                   toSeq: stops[i + 1].seq,
                   fromEta: stops[i].eta,
                   toEta: stops[i + 1].eta,
-                  isActive: now >= cur && now < next, // only the bus currently on the road
+                  isActive,
                 });
               }
             }
@@ -183,25 +187,27 @@ test.describe('HK Bus Tracker - Bus Icon Validation', () => {
           });
 
           const betweens = document.querySelectorAll('.bus-between');
+          const allRows = Array.from(document.querySelectorAll('.stop-row'));
           const betweenPairs = [];
           betweens.forEach(bw => {
             const prev = bw.previousElementSibling;
             const next = bw.nextElementSibling;
-            const prevSeq = parseInt(prev?.querySelector('.stop-seq, .stop-bus-at')?.textContent) || 0;
-            const nextSeq = parseInt(next?.querySelector('.stop-seq, .stop-bus-at')?.textContent) || 0;
-            betweenPairs.push({ fromSeq: prevSeq, toSeq: nextSeq });
+            const prevIdx = allRows.indexOf(prev);
+            const nextIdx = allRows.indexOf(next);
+            if (prevIdx >= 0 && nextIdx >= 0) {
+              betweenPairs.push({ fromSeq: prevIdx + 1, toSeq: nextIdx + 1 });
+            }
           });
 
           const activeStops = new Set();
-          document.querySelectorAll('.stop-row.stop-active').forEach(row => {
-            const seqEl = row.querySelector('.stop-seq, .stop-bus-at');
-            if (!seqEl) return;
-            const seq = parseInt(seqEl.textContent) || 0;
-            if (seq) activeStops.add(seq);
+          document.querySelectorAll('.stop-row').forEach((row, idx) => {
+            if (row.classList.contains('stop-active')) {
+              activeStops.add(idx + 1);
+            }
           });
 
           return { violations, validPairs, stopNames, betweenPairs, activeStops: [...activeStops] };
-        });
+        }, { bound });
 
         if (!etaData || !etaData.validPairs.length) {
           console.log(`Route ${route}: No active bus ETA data to validate`);

@@ -73,7 +73,9 @@ class BusTrackerApp {
     $(document).on('eta:update', (e, map) => {
       const stops = this.routeMgr.getStops()
       const allEta = this.etaMgr.getAllEta()
-      const busPos = this.etaMgr.getBusPositions(stops)
+
+      // Single call: compute all bus icon placements from raw ETA
+      const placements = this.etaMgr.computePlacements(stops)
 
       // Log all stops with ETA info
       const stopLog = stops.map(s => {
@@ -87,8 +89,8 @@ class BusTrackerApp {
       Logger.api('STOP_ETA', `${stops.length} stops\n${stopLog}`)
 
       // Log all bus icon placements
-      if (busPos.length) {
-        const iconLog = busPos.map(bp => {
+      if (placements.mapPositions.length) {
+        const iconLog = placements.mapPositions.map(bp => {
           const fromName = (stops.find(s => s.seq === bp.fromSeq) || {}).name_en || bp.fromSeq
           const toName = (stops.find(s => s.seq === bp.toSeq) || {}).name_en || bp.toSeq
           const pct = Math.round(bp.progress * 100)
@@ -96,12 +98,11 @@ class BusTrackerApp {
             : `BETWEEN ${fromName} → ${toName}`
           return `  🚌 ${placement} (${pct}% @ ${bp.lat.toFixed(5)},${bp.lng.toFixed(5)})`
         }).join('\n')
-        Logger.map('BUS_ICONS', `${busPos.length} buses\n${iconLog}`)
+        Logger.map('BUS_ICONS', `${placements.mapPositions.length} buses\n${iconLog}`)
 
-        this.ui.showBusPositions(busPos, stops)
-        this.mapMgr.render(stops, busPos)
+        this.mapMgr.render(stops, placements.mapPositions)
       }
-      this.ui.renderStopList(stops, map)
+      this.ui.renderStopList(stops, map, placements)
 
       // Store debug snapshot for issue reproduction
       Logger.setSnapshot({
@@ -109,7 +110,7 @@ class BusTrackerApp {
         bound: this._bound,
         stopCount: stops.length,
         etaTotalCount: allEta.length,
-        busPositions: busPos,
+        busPositions: placements.mapPositions,
         sampleEtaItems: allEta.slice(0, 5),
         sampleStops: stops.filter((s, i) => i < 3 || i >= stops.length - 3),
       })

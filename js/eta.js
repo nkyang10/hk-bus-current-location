@@ -1,10 +1,9 @@
 /**
  * EtaManager — polls ETA for multiple service types, merges by seq.
- * Computes bus positions between stops using eta_seq (vehicle ID).
- * Public API: start(route, bound, types), stop(), getEtaMap(), getBusPositions(stops)
+ * Public API: start(route, bound, types), stop(), getEtaMap(), computePlacements(stops)
  */
 class EtaManager {
-    constructor(api) {
+  constructor(api) {
     this.api = api
     this._etaMap = {}
     this._allEta = []
@@ -23,87 +22,81 @@ class EtaManager {
   getAllEta() { return this._allEta }
   isLoading() { return this._loading }
 
-  getBusPositions(stops) {
-    if (!stops || stops.length < 2 || !this._allEta.length) return []
+  /**
+   * Single function that determines where every bus icon should go.
+   * Returns:
+   *   atStop: Set<seq>        — stop numbers whose circle is replaced by 🚌
+   *   between: [{fromSeq,toSeq}] — pairs that get a 🚌 overlay between rows
+   *   mapPositions: [...]     — {lat, lng, type, fromSeq, toSeq, progress} for map
+   */
+  computePlacements(stops) {
+    const atStop = new Set()
+    const between = []
+    const mapPositions = []
 
+    if (!stops || stops.length < 2 || !this._allEta.length) return { atStop, between, mapPositions }
+
+    // Build coordinate lookup
     const stopCoords = {}
     stops.forEach(s => { stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) } })
 
-    // Filter by current bound, group by bus (eta_seq)
+    // Group ETA by bound + bus (eta_seq)
     const buses = {}
     this._allEta.forEach(eta => {
       if (eta.dir !== this._bound) return
       if (!eta.eta) return
       const vid = `${eta.service_type}-${eta.eta_seq}`
       if (!buses[vid]) buses[vid] = []
-      buses[vid].push({ seq: parseInt(eta.seq, 10), eta: new Date(eta.eta), svc: eta.service_type })
+      buses[vid].push({ seq: parseInt(eta.seq, 10), eta: new Date(eta.eta) })
     })
 
-    const now = new Date()
-    const positions = []
-    const AT_STOP_THRESHOLD_MS = 90 * 1000 // 1.5 min — aligns with display rounding (Math.round)
+    const now = Date.now()
+    const AT_MS = 90 * 1000
 
     for (const vid of Object.keys(buses)) {
-      const stops = buses[vid].sort((a, b) => a.seq - b.seq)
-      const nowTime = now.getTime()
-
-      // Find the segment where now falls between stop[N].eta and stop[N+1].eta
-      for (let i = 0; i < stops.length - 1; i++) {
-        const cur = stops[i]
-        const next = stops[i + 1]
+      const sorted = buses[vid].sort((a, b) => a.seq - b.seq)
+      for (let i = 0; i < sorted.length - 1; i++) {
+        const cur = sorted[i]
+        const next = sorted[i + 1]
         if (next.seq - cur.seq !== 1) continue
-        
-        const curTime = cur.eta.getTime()
-        const nextTime = next.eta.getTime()
-        
-        // Skip if times are invalid
-        if (nextTime <= curTime) continue
-        
-        // Check if now is between these two stops
-        if (nowTime >= curTime && nowTime < nextTime) {
-          const timeToNext = nextTime - nowTime
-          const progress = (nowTime - curTime) / (nextTime - curTime)
-          
-          // Log time calculations for debugging
-          Logger.api('BUS_TIME', `Bus ${vid}: stop ${cur.seq}→${next.seq}, now=${now.toISOString()}, cur=${cur.eta.toISOString()}, next=${next.eta.toISOString()}, timeToNext=${Math.round(timeToNext/1000)}s, progress=${progress.toFixed(3)}`)
-          
-          // Type 1: AT stop (arriving in < 2 minutes)
-          if (timeToNext < AT_STOP_THRESHOLD_MS) {
+
+        const curT = cur.eta.getTime()
+        const nextT = next.eta.getTime()
+        if (nextT <= curT) continue
+
+        if (now >= curT && now < nextT) {
+          const timeToNext = nextT - now
+          const progress = (now - curT) / (nextT - curT)
+
+          Logger.api('BUS_TIME', `Bus ${vid}: stop ${cur.seq}→${next.seq}, now=${new Date(now).toISOString()}, cur=${cur.eta.toISOString()}, next=${next.eta.toISOString()}, timeToNext=${Math.round(timeToNext/1000)}s, progress=${progress.toFixed(3)}`)
+
+          if (timeToNext < AT_MS) {
+            // Type 1: AT destination stop
+            atStop.add(next.seq)
             const coord = stopCoords[next.seq]
             if (coord && !isNaN(coord.lat)) {
-              positions.push({
-                lat: coord.lat,
-                lng: coord.lng,
-                etaSeq: vid,
-                fromSeq: cur.seq,
-                toSeq: next.seq,
-                progress,
-                type: 'at_stop',
-              })
+              mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: cur.seq, toSeq: next.seq, progress })
             }
-          }
-          // Type 2: BETWEEN stops (next stop >= 2 minutes away)
-          else {
+          } else {
+            // Type 2: BETWEEN stops
+            atStop.add(next.seq)
+            between.push({ fromSeq: cur.seq, toSeq: next.seq })
             const from = stopCoords[cur.seq]
             const to = stopCoords[next.seq]
             if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
-              positions.push({
+              mapPositions.push({
                 lat: from.lat + (to.lat - from.lat) * progress,
                 lng: from.lng + (to.lng - from.lng) * progress,
-                etaSeq: vid,
-                fromSeq: cur.seq,
-                toSeq: next.seq,
-                progress,
-                type: 'between',
+                type: 'between', fromSeq: cur.seq, toSeq: next.seq, progress,
               })
             }
           }
-          break // Bus found, move to next bus
+          break
         }
       }
     }
 
-    return positions
+    return { atStop, between, mapPositions }
   }
 
   start(route, bound, types) {
@@ -114,7 +107,7 @@ class EtaManager {
     this._lastTimestamp = null
     this._converged = false
     this._poll()
-    this._schedule(10) // fast poll: hunt for fresh gov data
+    this._schedule(10)
   }
 
   stop() {
@@ -149,23 +142,19 @@ class EtaManager {
       )
       const all = results.filter(Boolean).flatMap(r => r.data || [])
 
-      // Check if gov data actually refreshed since last poll
       const latestTs = all.length ? all[0].data_timestamp : null
       if (latestTs && latestTs === this._lastTimestamp) {
         Logger.api('ETA_SKIP', `poll #${this._pollCount}: timestamp unchanged (${latestTs}) ${this._converged ? 'settled 60s' : 'fast 10s'}`)
-        return // data same as last poll, skip re-render
+        return
       }
 
-      // New data received — render and settle to 60s cadence
       if (this._lastTimestamp !== null) {
         this._converged = true
         this._schedule(60)
       }
       this._lastTimestamp = latestTs
-
       this._allEta = all
 
-      // Build etaMap filtered by current bound
       const map = {}
       all.forEach(eta => {
         if (eta.dir !== this._bound) return
@@ -174,6 +163,7 @@ class EtaManager {
         map[key].push(eta)
       })
       this._etaMap = map
+
       Logger.api('ETA', `poll #${this._pollCount}: ${all.length} total, ${Object.keys(map).length} stops (bound=${this._bound}) ts=${latestTs}`)
       $(document).trigger('eta:update', [map])
     } catch (err) {

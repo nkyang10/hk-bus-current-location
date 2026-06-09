@@ -12,25 +12,6 @@ class UIManager {
     this._busBetween = []
   }
 
-  showBusPositions(busPositions, stops) {
-    const atStop = new Set()
-    const between = []
-
-    busPositions.forEach(bp => {
-      if (bp.type === 'at_stop') {
-        // Type 1: Bus arriving at destination stop (< 2 min)
-        atStop.add(bp.toSeq)
-      } else if (bp.type === 'between') {
-        // Type 2: Bus between stops (>= 2 min to next stop)
-        atStop.add(bp.toSeq)
-        between.push({ fromSeq: bp.fromSeq, toSeq: bp.toSeq })
-      }
-    })
-
-    this._busAtStop = atStop
-    this._busBetween = between
-  }
-
   // ---------- Top-level render ----------
 
   renderLanding() {
@@ -155,12 +136,15 @@ class UIManager {
 
   // ---------- Stop list ----------
 
-  renderStopList(stops, etaMap) {
+  renderStopList(stops, etaMap, placements) {
     const $list = $('#stopList')
     if (!stops || stops.length === 0) {
       $list.html(`<div class="empty-state">🚌<p>${this.lang.t('沒有站點資料', 'No stops data', '没有站点数据')}</p></div>`)
       return
     }
+
+    const atStop = placements?.atStop || this._busAtStop || new Set()
+    const between = placements?.between || this._busBetween || []
 
     let html = ''
     stops.forEach((stop, idx) => {
@@ -170,7 +154,7 @@ class UIManager {
         ? stop.serviceTypes.map(s => `<span class="svc-tag">${s}</span>`).join('')
         : ''
       const name = this.lang.t(stop.name_tc, stop.name_en, stop.name_sc)
-      const busHere = this._busAtStop && this._busAtStop.has(stop.seq)
+      const busHere = atStop.has(stop.seq)
 
       // Case 1: bus at station — replace number with bus icon
       const seqContent = busHere
@@ -197,7 +181,7 @@ class UIManager {
 
       // Case 2: bus between this stop and next — overlay between rows
       if (idx < stops.length - 1) {
-        const here = this._busBetween && this._busBetween.some(b => b.fromSeq === stop.seq && b.toSeq === stops[idx + 1].seq)
+        const here = between.some(b => b.fromSeq === stop.seq && b.toSeq === stops[idx + 1].seq)
         if (here) {
           html += `<div class="bus-between"><span class="bus-between-icon">🚌</span></div>`
         }
