@@ -360,7 +360,7 @@ class UIManager {
     if (!best || !best.eta) return { cls: '', html: '<span class="eta-none">—</span>' }
 
     const diffMs = new Date(best.eta) - now
-    const diffMin = Math.round(diffMs / 60000)
+    const diffMin = Math.floor(diffMs / 60000)
     const diffSec = Math.round(diffMs / 1000)
 
     let text, cls
