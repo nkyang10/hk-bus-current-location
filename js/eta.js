@@ -79,22 +79,6 @@ class EtaManager {
       }
     }
 
-    // 2. Additional BETWEEN overlays: stop N > stop N+1 (bus passed N, heading to N+1)
-    for (let i = 0; i < stops.length - 1; i++) {
-      const cur = stops[i].seq
-      const nxt = stops[i + 1].seq
-      if (m[cur] === undefined || m[nxt] === undefined) continue
-      if (m[nxt] < 2) continue // bus arriving at nxt (AT case, already handled above)
-      if (m[cur] > m[nxt]) {
-        // Bus is closer to nxt than cur → passed cur, traveling toward nxt
-        if (atStop.has(nxt)) continue // already covered by closest-stop above
-        atStop.add(nxt)
-        between.push({ fromSeq: cur, toSeq: nxt })
-        const f = stopCoords[cur]; const t = stopCoords[nxt]
-        if (f && t && !isNaN(f.lat)) mapPositions.push({ lat: (f.lat + t.lat) / 2, lng: (f.lng + t.lng) / 2, type: 'between', fromSeq: cur, toSeq: nxt, progress: 0.5 })
-      }
-    }
-
     return { atStop, between, mapPositions }
   }
 
