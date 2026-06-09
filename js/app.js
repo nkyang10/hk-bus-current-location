@@ -72,14 +72,33 @@ class BusTrackerApp {
 
     $(document).on('eta:update', (e, map) => {
       const stops = this.routeMgr.getStops()
+      const allEta = this.etaMgr.getAllEta()
       const busPos = this.etaMgr.getBusPositions(stops)
+
+      // Log all stops with ETA info
+      const stopLog = stops.map(s => {
+        const items = (map[String(s.seq)] || []).filter(e => e.eta)
+        const times = items.map(e => {
+          const t = new Date(e.eta)
+          return `${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}`
+        }).join(',') || '—'
+        return `  #${s.seq} ${s.name_en}: [${times}]`
+      }).join('\n')
+      Logger.api('STOP_ETA', `${stops.length} stops\n${stopLog}`)
+
+      // Log all bus icon placements
       if (busPos.length) {
-        // Log each bus position with details for debugging
-        busPos.forEach(bp => {
+        const iconLog = busPos.map(bp => {
           const fromName = (stops.find(s => s.seq === bp.fromSeq) || {}).name_en || bp.fromSeq
           const toName = (stops.find(s => s.seq === bp.toSeq) || {}).name_en || bp.toSeq
-          Logger.map('BUS', `${fromName} → ${toName} (${Math.round(bp.progress * 100)}%)`)
-        })
+          const pct = Math.round(bp.progress * 100)
+          const placement = (bp.progress < 0.15) ? `AT ${fromName}`
+            : (bp.progress > 0.85) ? `AT ${toName}`
+            : `BETWEEN ${fromName} → ${toName}`
+          return `  🚌 ${placement} (${pct}% @ ${bp.lat.toFixed(5)},${bp.lng.toFixed(5)})`
+        }).join('\n')
+        Logger.map('BUS_ICONS', `${busPos.length} buses\n${iconLog}`)
+
         this.ui.showBusPositions(busPos, stops)
         this.mapMgr.render(stops, busPos)
       }
