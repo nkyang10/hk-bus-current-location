@@ -23,11 +23,14 @@ class EtaManager {
   isLoading() { return this._loading }
 
   /**
-   * Determines bus icon placement using per-stop DISPLAYED minutes.
-   * Finds the single stop with the smallest displayed minutes (closest bus).
+   * Per-stop bus placement using DISPLAYED minutes.
    *
-   *   diffMin <= 1 → 🚌 AT that stop (shows "到站" or "1 分鐘")
-   *   diffMin >= 2 → 🚌 BETWEEN prev stop and that stop (shows "2+ 分鐘")
+   * 1. Closest stop (smallest minutes):
+   *      <= 1 → 🚌 AT that stop
+   *      >= 2 → 🚌 BETWEEN prev and that stop
+   * 2. For every consecutive pair (N, N+1):
+   *      IF stop N+1 >= 2 min AND stop N > stop N+1 min
+   *      → bus passed N, heading to N+1 → 🚌 BETWEEN N and N+1
    */
   computePlacements(stops) {
     const atStop = new Set()
@@ -37,57 +40,58 @@ class EtaManager {
     if (!stops || stops.length < 2) return { atStop, between, mapPositions }
 
     const stopCoords = {}
-    const stopMinutes = {} // seq → displayed minutes (Math.floor)
+    const m = {} // stopMinutes: seq → displayed minutes (Math.floor)
     const now = Date.now()
 
     stops.forEach(s => {
       stopCoords[s.seq] = { lat: parseFloat(s.lat), lng: parseFloat(s.long) }
-
-      // Find nearest future ETA at this stop (from bound-filtered etaMap)
       const items = (this._etaMap[String(s.seq)] || []).filter(e => e.eta)
       const future = items
         .map(e => ({ eta: new Date(e.eta) }))
         .filter(e => e.eta.getTime() > now - 120000)
         .sort((a, b) => a.eta.getTime() - b.eta.getTime())
-
       if (future.length) {
-        const diffMs = future[0].eta.getTime() - now
-        stopMinutes[s.seq] = Math.floor(diffMs / 60000)
+        m[s.seq] = Math.floor((future[0].eta.getTime() - now) / 60000)
       }
     })
 
-    // Find the single stop with the smallest displayed minutes
-    const seqs = stops.map(s => s.seq).filter(s => stopMinutes[s] !== undefined)
+    const seqs = stops.map(s => s.seq).filter(s => m[s] !== undefined)
     if (!seqs.length) return { atStop, between, mapPositions }
 
-    const bestSeq = seqs.reduce((a, b) => stopMinutes[a] < stopMinutes[b] ? a : b)
-    const bestMin = stopMinutes[bestSeq]
+    // 1. Closest stop globally
+    const bestSeq = seqs.reduce((a, b) => m[a] < m[b] ? a : b)
+    const bestMin = m[bestSeq]
     const bestIdx = stops.findIndex(s => s.seq === bestSeq)
 
-    Logger.api('PLACEMENT', `closest bus at stop ${bestSeq} (${bestMin} min)`)
+    Logger.api('PLACEMENT', `closest at stop ${bestSeq} (${bestMin} min)`)
 
     if (bestMin <= 1) {
-      // 🚌 AT this stop — arriving in 0-1 minutes
       atStop.add(bestSeq)
-      const coord = stopCoords[bestSeq]
-      if (coord && !isNaN(coord.lat)) {
-        mapPositions.push({ lat: coord.lat, lng: coord.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
-      }
+      const c = stopCoords[bestSeq]
+      if (c && !isNaN(c.lat)) mapPositions.push({ lat: c.lat, lng: c.lng, type: 'at_stop', fromSeq: bestSeq, toSeq: bestSeq, progress: 0 })
     } else {
-      // 🚌 BETWEEN previous and this stop — 2+ minutes away
-      const prevSeq = bestIdx > 0 ? stops[bestIdx - 1].seq : null
-      if (prevSeq !== null) {
+      const prev = bestIdx > 0 ? stops[bestIdx - 1].seq : null
+      if (prev !== null) {
         atStop.add(bestSeq)
-        between.push({ fromSeq: prevSeq, toSeq: bestSeq })
-        const from = stopCoords[prevSeq]
-        const to = stopCoords[bestSeq]
-        if (from && to && !isNaN(from.lat) && !isNaN(to.lat)) {
-          mapPositions.push({
-            lat: from.lat + (to.lat - from.lat) * 0.5,
-            lng: from.lng + (to.lng - from.lng) * 0.5,
-            type: 'between', fromSeq: prevSeq, toSeq: bestSeq, progress: 0.5,
-          })
-        }
+        between.push({ fromSeq: prev, toSeq: bestSeq })
+        const f = stopCoords[prev]; const t = stopCoords[bestSeq]
+        if (f && t && !isNaN(f.lat)) mapPositions.push({ lat: (f.lat + t.lat) / 2, lng: (f.lng + t.lng) / 2, type: 'between', fromSeq: prev, toSeq: bestSeq, progress: 0.5 })
+      }
+    }
+
+    // 2. Additional BETWEEN overlays: stop N > stop N+1 (bus passed N, heading to N+1)
+    for (let i = 0; i < stops.length - 1; i++) {
+      const cur = stops[i].seq
+      const nxt = stops[i + 1].seq
+      if (m[cur] === undefined || m[nxt] === undefined) continue
+      if (m[nxt] < 2) continue // bus arriving at nxt (AT case, already handled above)
+      if (m[cur] > m[nxt]) {
+        // Bus is closer to nxt than cur → passed cur, traveling toward nxt
+        if (atStop.has(nxt)) continue // already covered by closest-stop above
+        atStop.add(nxt)
+        between.push({ fromSeq: cur, toSeq: nxt })
+        const f = stopCoords[cur]; const t = stopCoords[nxt]
+        if (f && t && !isNaN(f.lat)) mapPositions.push({ lat: (f.lat + t.lat) / 2, lng: (f.lng + t.lng) / 2, type: 'between', fromSeq: cur, toSeq: nxt, progress: 0.5 })
       }
     }
 
