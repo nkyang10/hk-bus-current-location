@@ -7,79 +7,48 @@
  *   getNearestStops(pos, stops, count) → [{stop, distance}]
  */
 const GeoUtils = (() => {
-  const BRouterBase = 'https://brouter.de/brouter'
+  const OSRM = 'https://router.project-osrm.org/route/v1'
 
-  function _brouterUrl(from, to) {
-    return `${BRouterBase}?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
+  function _fetchOsrm(profile, coordList) {
+    const url = `${OSRM}/${profile}/${coordList}?geometries=geojson&overview=full`
+    return fetch(url)
+      .then(res => {
+        if (!res.ok) { Logger.warn('GEO', `OSRM ${profile} HTTP ${res.status}`); return null }
+        return res.json()
+      })
+      .then(data => {
+        if (data && data.routes && data.routes[0]) return data.routes[0]
+        Logger.warn('GEO', `OSRM ${profile}: no routes`)
+        return null
+      })
+      .catch(err => {
+        Logger.warn('GEO', `OSRM ${profile} error: ${err.message}`)
+        return null
+      })
   }
 
-  function _parseBrouter(text) {
-    let data
-    try { data = JSON.parse(text) } catch { return null }
-    if (!data.features || data.features.length === 0) return null
-    return data.features[0]
+  function _coordsStr(points) {
+    return points.map(p => `${p.long != null ? p.long : p.lng},${p.lat}`).join(';')
   }
 
   function fetchRouteGeometry(stops) {
     const valid = stops.filter(s => s.lat != null && s.long != null && isFinite(s.lat) && isFinite(s.long))
     if (valid.length < 2) return Promise.resolve(null)
-
-    const coords = valid.map(s => `${s.long},${s.lat}`).join(';')
-    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?geometries=geojson&overview=full`
-
-    return fetch(url)
-      .then(res => {
-        if (!res.ok) { Logger.warn('GEO', `OSRM HTTP ${res.status}`); return null }
-        return res.json()
-      })
-      .then(data => {
-        if (data && data.routes && data.routes[0]) return data.routes[0].geometry
-        Logger.warn('GEO', 'OSRM: no routes')
-        return null
-      })
-      .catch(err => {
-        Logger.warn('GEO', `OSRM error: ${err.message}`)
-        return null
-      })
+    return _fetchOsrm('driving', _coordsStr(valid)).then(r => r ? r.geometry : null)
   }
 
   function fetchWalkingRoute(from, to) {
-    return fetch(_brouterUrl(from, to))
-      .then(res => {
-        if (!res.ok) { Logger.warn('GEO', `BRouter HTTP ${res.status}`); return null }
-        return res.text()
-      })
-      .then(text => {
-        if (!text) return null
-        const feature = _parseBrouter(text)
-        return feature ? feature.geometry : null
-      })
-      .catch(err => {
-        Logger.warn('GEO', `BRouter error: ${err.message}`)
-        return null
-      })
+    return _fetchOsrm('foot', _coordsStr([from, to])).then(r => r ? r.geometry : null)
   }
 
   function fetchWalkingDistance(from, to) {
-    return fetch(_brouterUrl(from, to), { mode: 'cors' })
-      .then(res => {
-        if (!res.ok) { Logger.warn('GEO', `BRouter dist HTTP ${res.status}`); return null }
-        return res.text()
-      })
-      .then(text => {
-        if (!text) return null
-        const feature = _parseBrouter(text)
-        if (!feature) return null
-        const p = feature.properties
-        return {
-          distance: Math.round(p['track-length'] || p.distance || 0),
-          duration: Math.round((p['total-time'] || p.time || 0) / 60)
-        }
-      })
-      .catch(err => {
-        Logger.warn('GEO', `BRouter dist error: ${err.message}`)
-        return null
-      })
+    return _fetchOsrm('foot', _coordsStr([from, to])).then(r => {
+      if (!r) return null
+      return {
+        distance: Math.round(r.distance),
+        duration: Math.round(r.duration / 60)
+      }
+    })
   }
 
   function haversineDistance(lat1, lng1, lat2, lng2) {
