@@ -36,12 +36,13 @@ class BusTrackerApp {
     this.api = this._createApi()
     this.routeMgr = new RouteManager(this.api)
     this.etaMgr = new EtaManager(this.api)
-    this._tearDownRoute()
-    this._route = ''
-    this._bound = 'O'
-    this._updateUrl('', 'O')
-    this.ui.renderLanding(this._company)
-    this._bindLandingEvents()
+    if (this._route) {
+      this._updateUrl(this._route, this._bound)
+      this._navigate(this._route, this._bound)
+    } else {
+      this.ui.renderLanding(this._company)
+      this._bindLandingEvents()
+    }
   }
 
   init() {
