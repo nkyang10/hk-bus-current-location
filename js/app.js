@@ -170,7 +170,6 @@ class BusTrackerApp {
     })
 
     $(document).on('stop:click', async (e, stopInfo) => {
-      // Always switch to map view on stop click
       const stops = this.routeMgr.getStops()
       const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
 
@@ -178,14 +177,12 @@ class BusTrackerApp {
         const userPos = this._locationReady ? this.locMgr.getPosition() : null
         await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
         this.ui.setMapButtonIcon('📋')
-      } else {
-        if (this._locationReady) {
-          const userPos = this.locMgr.getPosition()
-          if (userPos) this.mapMgr.updateUserPosition(userPos)
-        }
       }
 
-      // Draw walking path if location is available
+      // Center on the clicked stop
+      this.mapMgr.centerOnStop(stopInfo)
+
+      // Draw walking path from user to stop
       if (this._locationReady) {
         const userPos = this.locMgr.getPosition()
         if (userPos) {

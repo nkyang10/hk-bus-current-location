@@ -200,14 +200,16 @@ class MapManager {
     }
   }
 
+  centerOnStop(stopInfo) {
+    if (!this._map) return
+    this.clearWalkingPath()
+    this._map.setView([stopInfo.lat, stopInfo.lng], 16)
+  }
+
   async showWalkingPath(from, toStop) {
     this.clearWalkingPath()
-    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.long })
-    if (!geometry) return
-    this._walkLayer = L.geoJSON(geometry, {
-      style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
-    }).addTo(this._map)
 
+    // Highlight the clicked stop
     const highlightIcon = L.divIcon({
       html: '<div class="stop-highlight-dot"></div>',
       className: '',
@@ -216,8 +218,20 @@ class MapManager {
     })
     this._walkStopMarker = L.marker([toStop.lat, toStop.long], { icon: highlightIcon }).addTo(this._map)
 
-    const bounds = L.latLngBounds([from.lat, from.lng], [toStop.lat, toStop.long])
-    this._map.fitBounds(bounds, { padding: [60, 60] })
+    // Draw walking path (OSRM road-following, or fallback straight line)
+    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.long })
+    if (geometry) {
+      this._walkLayer = L.geoJSON(geometry, {
+        style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
+      }).addTo(this._map)
+    } else {
+      this._walkLayer = L.polyline([[from.lat, from.lng], [toStop.lat, toStop.long]], {
+        color: '#3b82f6',
+        weight: 3,
+        opacity: 0.6,
+        dashArray: '10,10',
+      }).addTo(this._map)
+    }
   }
 
   clearWalkingPath() {
