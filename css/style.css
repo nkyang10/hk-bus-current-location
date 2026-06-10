@@ -189,7 +189,6 @@ a { color: #E31837; }
 .eta-due { color: #22c55e; }
 .eta-soon { color: #f97316; }
 .eta-normal { color: #374151; }
-.eta-more { font-size: 10px; color: #9ca3af; margin-left: 2px; font-weight: 400; }
 .eta-dest { display: block; font-size: 9px; font-weight: 400; color: #9ca3af; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
 .eta-rmk { display: block; font-size: 9px; font-weight: 400; color: #f97316; }
 

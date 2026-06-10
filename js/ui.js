@@ -376,13 +376,12 @@ class UIManager {
     else if (diffMin <= 3) { text = `${diffMin} ${this.lang.t('分鐘', 'min', '分钟')}`; cls = 'eta-soon' }
     else { text = `${diffMin} ${this.lang.t('分鐘', 'min', '分钟')}`; cls = 'eta-normal' }
 
-    const extra = etaArr.length > 1 ? `<span class="eta-more">+${etaArr.length - 1}</span>` : ''
     const dest = best.dest_en ? `<span class="eta-dest">${this.lang.t(best.dest_tc, best.dest_en, best.dest_sc)}</span>` : ''
     const rmk = best.rmk_en && best.rmk_en !== 'Scheduled Bus' ? `<span class="eta-rmk">${this._esc(this.lang.t(best.rmk_tc, best.rmk_en, best.rmk_sc))}</span>` : ''
 
     return {
       cls: `seq-${cls}`,
-      html: `<div class="eta-val ${cls}">${text}${extra}${dest}${rmk}</div>`,
+      html: `<div class="eta-val ${cls}">${text}${dest}${rmk}</div>`,
     }
   }
 
