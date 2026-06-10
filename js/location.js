@@ -87,14 +87,15 @@ class LocationManager {
   }
 
   async fetchWalkingDistance(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/walking/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`
+    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     try {
       const res = await fetch(url)
       const data = await res.json()
-      if (data.routes && data.routes[0]) {
+      if (data.features && data.features.length > 0) {
+        const props = data.features[0].properties
         return {
-          distance: data.routes[0].distance,
-          duration: data.routes[0].duration,
+          distance: props['track-length'],
+          duration: props['total-time'],
         }
       }
     } catch {
@@ -104,12 +105,12 @@ class LocationManager {
   }
 
   async fetchWalkingRoute(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/walking/${from.lng},${from.lat};${to.lng},${to.lat}?geometries=geojson&overview=full`
+    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     try {
       const res = await fetch(url)
       const data = await res.json()
-      if (data.routes && data.routes[0]) {
-        return data.routes[0].geometry
+      if (data.features && data.features.length > 0) {
+        return data.features[0].geometry
       }
     } catch {
       Logger.warn('LOC', 'Walking route fetch failed')

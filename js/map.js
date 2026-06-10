@@ -240,11 +240,13 @@ class MapManager {
   }
 
   _fetchWalkingRoute(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/walking/${from.lng},${from.lat};${to.lng},${to.lat}?geometries=geojson&overview=full`
+    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     return fetch(url)
       .then(res => res.json())
       .then(data => {
-        if (data.routes && data.routes[0]) return data.routes[0].geometry
+        if (data.features && data.features.length > 0) {
+          return data.features[0].geometry
+        }
         return null
       })
       .catch(() => null)
