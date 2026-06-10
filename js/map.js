@@ -206,6 +206,42 @@ class MapManager {
     this._map.setView([stopInfo.lat, stopInfo.lng], 16)
   }
 
+  _decodePolyline(encoded) {
+    const coordinates = []
+    let index = 0
+    let lat = 0
+    let lng = 0
+
+    while (index < encoded.length) {
+      let shift = 0
+      let result = 0
+      let byte
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63
+        result |= (byte & 0x1f) << shift
+        shift += 5
+      } while (byte >= 0x20)
+
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+      shift = 0
+      result = 0
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63
+        result |= (byte & 0x1f) << shift
+        shift += 5
+      } while (byte >= 0x20)
+
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+      coordinates.push([lat / 1e6, lng / 1e6])
+    }
+
+    return coordinates
+  }
+
   async showWalkingPath(from, toStop) {
     this.clearWalkingPath()
 
@@ -218,11 +254,15 @@ class MapManager {
     })
     this._walkStopMarker = L.marker([toStop.lat, toStop.lng], { icon: highlightIcon }).addTo(this._map)
 
-    // Draw walking path (OSRM road-following, or fallback straight line)
-    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.lng })
-    if (geometry) {
-      this._walkLayer = L.geoJSON(geometry, {
-        style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
+    // Draw walking path (Valhalla pedestrian route, or fallback straight line)
+    const encodedPolyline = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.lng })
+    if (encodedPolyline) {
+      const coords = this._decodePolyline(encodedPolyline)
+      this._walkLayer = L.polyline(coords, {
+        color: '#3b82f6',
+        weight: 5,
+        opacity: 0.8,
+        dashArray: '8,8',
       }).addTo(this._map)
     } else {
       this._walkLayer = L.polyline([[from.lat, from.lng], [toStop.lat, toStop.lng]], {
@@ -240,25 +280,36 @@ class MapManager {
   }
 
   _fetchWalkingRoute(from, to) {
-    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
-    return fetch(url)
+    const url = 'https://valhalla1.openstreetmap.de/route'
+    const body = {
+      locations: [
+        { lon: from.lng, lat: from.lat },
+        { lon: to.lng, lat: to.lat }
+      ],
+      costing: 'pedestrian',
+      directions_options: { units: 'meters' }
+    }
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
       .then(res => {
         if (!res.ok) {
-          Logger.warn('MAP', `BRouter HTTP error: ${res.status}`)
+          Logger.warn('MAP', `Valhalla HTTP error: ${res.status}`)
           return null
         }
         return res.json()
       })
       .then(data => {
-        if (!data) return null
-        if (data.features && data.features.length > 0) {
-          return data.features[0].geometry
+        if (!data || !data.trip || !data.trip.legs || data.trip.legs.length === 0) {
+          Logger.warn('MAP', 'Valhalla: no route found')
+          return null
         }
-        Logger.warn('MAP', 'BRouter: no features in response')
-        return null
+        return data.trip.legs[0].shape
       })
       .catch(err => {
-        Logger.warn('MAP', `BRouter fetch error: ${err.message}`)
+        Logger.warn('MAP', `Valhalla fetch error: ${err.message}`)
         return null
       })
   }

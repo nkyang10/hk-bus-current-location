@@ -86,23 +86,70 @@ class LocationManager {
     return withDist.slice(0, count || 4)
   }
 
+  _decodePolyline(encoded) {
+    const coordinates = []
+    let index = 0
+    let lat = 0
+    let lng = 0
+
+    while (index < encoded.length) {
+      let shift = 0
+      let result = 0
+      let byte
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63
+        result |= (byte & 0x1f) << shift
+        shift += 5
+      } while (byte >= 0x20)
+
+      lat += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+      shift = 0
+      result = 0
+
+      do {
+        byte = encoded.charCodeAt(index++) - 63
+        result |= (byte & 0x1f) << shift
+        shift += 5
+      } while (byte >= 0x20)
+
+      lng += (result & 1) ? ~(result >> 1) : (result >> 1)
+
+      coordinates.push([lat / 1e6, lng / 1e6])
+    }
+
+    return coordinates
+  }
+
   async fetchWalkingDistance(from, to) {
-    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
+    const url = 'https://valhalla1.openstreetmap.de/route'
+    const body = {
+      locations: [
+        { lon: from.lng, lat: from.lat },
+        { lon: to.lng, lat: to.lat }
+      ],
+      costing: 'pedestrian',
+      directions_options: { units: 'meters' }
+    }
     try {
-      const res = await fetch(url)
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
       if (!res.ok) {
-        Logger.warn('LOC', `BRouter HTTP error: ${res.status}`)
+        Logger.warn('LOC', `Valhalla HTTP error: ${res.status}`)
         return null
       }
       const data = await res.json()
-      if (data.features && data.features.length > 0) {
-        const props = data.features[0].properties
+      if (data.trip && data.trip.legs && data.trip.legs.length > 0) {
         return {
-          distance: props['track-length'],
-          duration: props['total-time'],
+          distance: data.trip.legs[0].summary.length,
+          duration: data.trip.legs[0].summary.time
         }
       }
-      Logger.warn('LOC', 'BRouter: no features in response')
+      Logger.warn('LOC', 'Valhalla: no route found')
     } catch (err) {
       Logger.warn('LOC', `Walking distance fetch failed: ${err.message}`)
     }
@@ -110,18 +157,35 @@ class LocationManager {
   }
 
   async fetchWalkingRoute(from, to) {
-    const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
+    const url = 'https://valhalla1.openstreetmap.de/route'
+    const body = {
+      locations: [
+        { lon: from.lng, lat: from.lat },
+        { lon: to.lng, lat: to.lat }
+      ],
+      costing: 'pedestrian',
+      directions_options: { units: 'meters' }
+    }
     try {
-      const res = await fetch(url)
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
       if (!res.ok) {
-        Logger.warn('LOC', `BRouter HTTP error: ${res.status}`)
+        Logger.warn('LOC', `Valhalla HTTP error: ${res.status}`)
         return null
       }
       const data = await res.json()
-      if (data.features && data.features.length > 0) {
-        return data.features[0].geometry
+      if (data.trip && data.trip.legs && data.trip.legs.length > 0) {
+        const encoded = data.trip.legs[0].shape
+        const coords = this._decodePolyline(encoded)
+        return {
+          type: 'LineString',
+          coordinates: coords.map(c => [c[1], c[0]])
+        }
       }
-      Logger.warn('LOC', 'BRouter: no features in response')
+      Logger.warn('LOC', 'Valhalla: no route found')
     } catch (err) {
       Logger.warn('LOC', `Walking route fetch failed: ${err.message}`)
     }
