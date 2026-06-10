@@ -7,11 +7,11 @@
  *   getNearestStops(pos, stops, count) → [{stop, distance}]
  */
 const GeoUtils = (() => {
-  const OSRM_PRIMARY = 'https://router.project-osrm.org/route/v1'
-  const OSRM_FALLBACK = 'https://routing.openstreetmap.de'
+  const OSRM = 'https://routing.openstreetmap.de'
 
   function _fetchOsrm(profile, coordList) {
-    const url = `${OSRM_PRIMARY}/${profile}/${coordList}?geometries=geojson&overview=full`
+    const prefix = profile === 'driving' ? 'routed-car' : 'routed-foot'
+    const url = `${OSRM}/${prefix}/route/v1/driving/${coordList}?geometries=geojson&overview=full`
     return fetch(url)
       .then(res => {
         if (!res.ok) { Logger.warn('GEO', `OSRM ${profile} HTTP ${res.status}`); return null }
@@ -28,23 +28,6 @@ const GeoUtils = (() => {
       })
   }
 
-  function _fetchOsrmFoot(coordList) {
-    return _fetchOsrm('foot', coordList).then(r => {
-      if (r) return r
-      const fbUrl = `${OSRM_FALLBACK}/routed-foot/route/v1/driving/${coordList}?geometries=geojson&overview=full`
-      return fetch(fbUrl)
-        .then(res => {
-          if (!res.ok) { Logger.warn('GEO', `OSRM fallback foot HTTP ${res.status}`); return null }
-          return res.json()
-        })
-        .then(data => {
-          if (data && data.routes && data.routes[0]) return data.routes[0]
-          return null
-        })
-        .catch(() => null)
-    })
-  }
-
   function _coordsStr(points) {
     return points.map(p => `${p.long != null ? p.long : p.lng},${p.lat}`).join(';')
   }
@@ -56,11 +39,11 @@ const GeoUtils = (() => {
   }
 
   function fetchWalkingRoute(from, to) {
-    return _fetchOsrmFoot(_coordsStr([from, to])).then(r => r ? r.geometry : null)
+    return _fetchOsrm('foot', _coordsStr([from, to])).then(r => r ? r.geometry : null)
   }
 
   function fetchWalkingDistance(from, to) {
-    return _fetchOsrmFoot(_coordsStr([from, to])).then(r => {
+    return _fetchOsrm('foot', _coordsStr([from, to])).then(r => {
       if (!r) return null
       return {
         distance: Math.round(r.distance),
