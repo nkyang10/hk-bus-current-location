@@ -49,6 +49,7 @@ class BusTrackerApp {
   init() {
     Logger.ui('INIT', 'App starting')
     this.ui.renderDebugButton()
+    this.ui.renderMapButton()
 
     const params = new URLSearchParams(window.location.search)
     const route = params.get('route') || ''
@@ -80,6 +81,7 @@ class BusTrackerApp {
       this._route = ''
       this.ui.renderLanding(this._company)
       this._bindLandingEvents()
+      this.ui.showMapButton(false)
     })
 
     $(document).on('nav:bound', (e, bound) => {
@@ -123,12 +125,12 @@ class BusTrackerApp {
     $(document).on('view:toggle', async () => {
       if (this.mapMgr.isVisible()) {
         this.mapMgr.hide()
-        $('#viewToggleBtn').text('🗺️')
+        this.ui.setMapButtonIcon('🗺️')
       } else {
         const stops = this.routeMgr.getStops()
         const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
         await this.mapMgr.load(stops, busPositions, this._company === 'ctb')
-        $('#viewToggleBtn').text('📋')
+        this.ui.setMapButtonIcon('📋')
       }
     })
 
@@ -193,7 +195,8 @@ class BusTrackerApp {
     this.ui.renderRouteView(route, bound, this._company)
     this._bindRouteEvents()
     this.mapMgr.hide()
-    $('#viewToggleBtn').text('🗺️')
+    this.ui.showMapButton(true)
+    this.ui.setMapButtonIcon('🗺️')
     const loadingTimer = setTimeout(() => this.ui.showStopListLoading(), 10000)
 
     try {

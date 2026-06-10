@@ -96,7 +96,6 @@ class UIManager {
             <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
-          <button class="view-toggle-btn" id="viewToggleBtn">🗺️</button>
         </div>
 
         <div class="bound-toggle" id="boundToggle">
@@ -127,7 +126,6 @@ class UIManager {
       const b = $(e.currentTarget).data('bound')
       $(document).trigger('nav:bound', [b])
     })
-    $('#viewToggleBtn').on('click', () => $(document).trigger('view:toggle'))
   }
 
   updateRouteCompany(company) {
@@ -240,12 +238,26 @@ class UIManager {
     $('#etaBar').toggle(v)
   }
 
-  // ---------- Debug panel ----------
+  // ---------- Floating action buttons ----------
 
   renderDebugButton() {
     if ($('#debugBtn').length) return
     $('body').append(`<button class="debug-btn" id="debugBtn">🐛</button>`)
     $('#debugBtn').on('click', () => $(document).trigger('debug:toggle'))
+  }
+
+  renderMapButton() {
+    if ($('#mapToggleBtn').length) return
+    $('body').append(`<button class="map-toggle-btn" id="mapToggleBtn" style="display:none">🗺️</button>`)
+    $('#mapToggleBtn').on('click', () => $(document).trigger('view:toggle'))
+  }
+
+  showMapButton(v) {
+    $('#mapToggleBtn').toggle(v)
+  }
+
+  setMapButtonIcon(icon) {
+    $('#mapToggleBtn').text(icon)
   }
 
   openDebugPanel() {
