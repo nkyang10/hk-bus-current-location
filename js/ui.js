@@ -179,6 +179,9 @@ class UIManager {
       return
     }
 
+    const busPositions = this._getBusPositions(stops, etaMap)
+    const busAfter = new Set(busPositions.map(p => p.afterSeq))
+
     let html = ''
     for (let i = 0; i < stops.length; i++) {
       const stop = stops[i]
@@ -197,6 +200,10 @@ class UIManager {
       html += `<div class="stop-info-col"><div class="stop-name-row"><span class="stop-name">${name}</span>${svcBadges}</div></div>`
       html += `<div class="stop-eta-col">${etaText.html}</div>`
       html += '</div>'
+
+      if (busAfter.has(stop.seq)) {
+        html += '<div class="bus-indicator-row"><div class="stop-seq-col"><span class="bus-icon">🚌</span></div></div>'
+      }
     }
 
     $list.html(html)
@@ -326,6 +333,27 @@ class UIManager {
   }
 
   // ---------- Helpers ----------
+
+  _getBusPositions(stops, etaMap) {
+    const now = new Date()
+    const positions = []
+    for (let i = 0; i < stops.length - 1; i++) {
+      const cur = stops[i]
+      const next = stops[i + 1]
+      const curEtas = (etaMap[String(cur.seq)] || [])
+        .filter(e => e.eta && new Date(e.eta) > now)
+        .sort((a, b) => new Date(a.eta) - new Date(b.eta))
+      const nextEtas = (etaMap[String(next.seq)] || [])
+        .filter(e => e.eta && new Date(e.eta) > now)
+        .sort((a, b) => new Date(a.eta) - new Date(b.eta))
+      const curFirst = curEtas.length > 0 ? new Date(curEtas[0].eta) : null
+      const nextFirst = nextEtas.length > 0 ? new Date(nextEtas[0].eta) : null
+      if (nextFirst && (!curFirst || nextFirst < curFirst)) {
+        positions.push({ afterSeq: cur.seq })
+      }
+    }
+    return positions
+  }
 
   _formatEta(etaArr) {
     if (!etaArr || etaArr.length === 0) return { cls: '', html: '<span class="eta-none">—</span>' }

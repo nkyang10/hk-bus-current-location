@@ -127,6 +127,23 @@ a { color: #E31837; }
 .route-view-ctb .bound-btn.active { background: #006847; border-color: #006847; }
 .bound-btn:hover:not(.active) { border-color: #9ca3af; }
 
+/* Bus Indicator */
+.bus-indicator-row {
+  display: flex; align-items: center; padding: 0 16px;
+}
+.bus-indicator-row .stop-seq-col {
+  min-width: 28px; display: flex; flex-direction: column; align-items: center;
+}
+.bus-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; font-size: 16px; line-height: 1;
+  animation: busBounce 2s ease-in-out infinite;
+}
+@keyframes busBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
 /* ETA Loading Bar */
 .eta-bar {
   display: flex; align-items: center; justify-content: center; gap: 8px;
