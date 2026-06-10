@@ -38,14 +38,18 @@ class MapManager {
 
     this._clearLayers()
 
-    const geometry = await this._fetchRouteGeometry(stops)
-    if (geometry) {
-      this._drawRoute(geometry, isCtb)
-    }
+    try {
+      const geometry = await this._fetchRouteGeometry(stops)
+      if (geometry) {
+        this._drawRoute(geometry, isCtb)
+      }
 
-    this._drawStops(stops)
-    this._drawBuses(busPositions, stops)
-    this._fitBounds(stops)
+      this._drawStops(stops)
+      this._drawBuses(busPositions, stops)
+      this._fitBounds(stops)
+    } catch (err) {
+      Logger.warn('MAP', 'Render failed: ' + err.message)
+    }
 
     // Ensure map is properly sized after layers added
     setTimeout(() => this._map.invalidateSize(), 150)
@@ -103,7 +107,7 @@ class MapManager {
 
   _drawStops(stops) {
     stops.forEach((stop, idx) => {
-      if (!stop.lat || !stop.long) return
+      if (stop.lat == null || stop.long == null || !isFinite(stop.lat) || !isFinite(stop.long)) return
       const marker = L.circleMarker([stop.lat, stop.long], {
         radius: 7,
         fillColor: '#fff',
@@ -121,7 +125,9 @@ class MapManager {
     busPositions.forEach(pos => {
       const cur = stops.find(s => s.seq === pos.afterSeq)
       const next = stops[stops.indexOf(cur) + 1]
-      if (!cur || !next || !cur.lat || !cur.long || !next.lat || !next.long) return
+      if (!cur || !next) return
+      if (cur.lat == null || cur.long == null || next.lat == null || next.long == null) return
+      if (!isFinite(cur.lat) || !isFinite(cur.long) || !isFinite(next.lat) || !isFinite(next.long)) return
       const lat = (cur.lat + next.lat) / 2
       const lng = (cur.long + next.long) / 2
       const icon = L.divIcon({
@@ -136,7 +142,7 @@ class MapManager {
   }
 
   _fitBounds(stops) {
-    const valid = stops.filter(s => s.lat && s.long)
+    const valid = stops.filter(s => s.lat != null && s.long != null && isFinite(s.lat) && isFinite(s.long))
     if (valid.length === 0) return
     const bounds = L.latLngBounds(valid.map(s => [s.lat, s.long]))
     this._map.fitBounds(bounds, { padding: [50, 50] })
