@@ -7,6 +7,7 @@ class UIManager {
     this.lang = lang
     this._debugOpen = false
     this._logInterval = null
+    this._locMgr = null
   }
 
   // ---------- Top-level render ----------
@@ -33,7 +34,11 @@ class UIManager {
             <button class="company-btn ${!isCtb ? 'active' : ''}" data-company="kmb">${this.lang.t('九巴 KMB', 'KMB', '九巴 KMB')}</button>
             <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
-          <button class="lang-btn" id="langBtn">${this.lang.label}</button>
+          <div class="header-right">
+            <span class="version-badge">v${APP_VERSION} · ${APP_COMMIT}</span>
+            <span class="loc-indicator loc-indicator-unknown" id="locIndicator" title="Location not requested">⊙</span>
+            <button class="lang-btn" id="langBtn">${this.lang.label}</button>
+          </div>
         </header>
         <main class="landing-main">
           <div class="landing-icon">🚌</div>
@@ -81,6 +86,8 @@ class UIManager {
             </div>
             <div class="route-dest-row">
               <span class="route-dest" id="routeDest">—</span>
+              <span class="version-badge version-badge-header">v${APP_VERSION} · ${APP_COMMIT}</span>
+              <span class="loc-indicator loc-indicator-unknown" id="locIndicator" title="Location not requested">⊙</span>
             </div>
           </div>
         </div>
@@ -198,12 +205,12 @@ class UIManager {
         ? stop.serviceTypes.map(s => `<span class="svc-tag">${s}</span>`).join('')
         : ''
 
-      html += `<div class="stop-row" data-seq="${i + 1}">`
+      html += `<div class="stop-row" data-seq="${i + 1}" data-stop-id="${stop.stopId}" data-lat="${stop.lat}" data-long="${stop.long}">`
       html += `<div class="stop-seq-col"><span class="stop-seq ${etaText.cls}">${i + 1}</span>`
       if (i < stops.length - 1) html += '<div class="stop-line"></div>'
       html += '</div>'
       html += `<div class="stop-info-col"><div class="stop-name-row"><span class="stop-name">${name}</span>${svcBadges}</div></div>`
-      html += `<div class="stop-eta-col">${etaText.html}</div>`
+      html += `<div class="stop-eta-col">${etaText.html}<div class="walk-dist-slot" data-seq="${i + 1}"></div></div>`
       html += '</div>'
 
       if (busAfter.has(stop.seq)) {
@@ -236,6 +243,115 @@ class UIManager {
 
   showEtaLoading(v) {
     $('#etaBar').toggle(v)
+  }
+
+  setLocMgr(locMgr) {
+    this._locMgr = locMgr
+  }
+
+  updateLocationStatus() {
+    if (!this._locMgr) return
+    const status = this._locMgr.getStatus()
+    $('.loc-indicator')
+      .attr('class', 'loc-indicator loc-indicator-' + status)
+      .attr('title', status === 'granted' ? 'Location available' : status === 'denied' ? 'Location denied — click to retry' : status === 'unavailable' ? 'Geolocation not supported' : 'Location not requested')
+      .text(status === 'granted' ? '◉' : '⊙')
+  }
+
+  bindLocationEvents(app) {
+    $(document).on('click', '#locIndicator', function () {
+      if (app._locationReady) return
+      $(this).text('...')
+      app.locMgr.retry().then((granted) => {
+        app._locationReady = granted
+        app.ui.updateLocationStatus()
+        if (granted) {
+          app.locMgr.onPosition((pos) => {
+            if (app.mapMgr.isVisible()) {
+              app.mapMgr.updateUserPosition(pos)
+            }
+          })
+          const stops = app.routeMgr.getStops()
+          if (stops.length > 0) {
+            app.ui.scrollToNearestStop(stops)
+            app._hasScrolled = true
+            app.ui.showWalkingDistances(stops)
+          }
+        }
+      })
+    })
+  }
+
+  scrollToNearestStop(stops) {
+    if (!this._locMgr || !this._locMgr.isPermitted()) return
+    const nearest = this._locMgr.getNearestStops(stops, 1)
+    if (nearest.length === 0) return
+    const targetSeq = nearest[0].stop.seq
+    const $container = $('.view-container')
+    const $target = $(`.stop-row[data-seq="${targetSeq}"]`)
+    if ($target.length === 0) return
+    const containerHeight = $container.height()
+    const rowHeight = $target.outerHeight(true)
+    const offset = $target.position().top
+    const scrollTop = offset - containerHeight / 2 + rowHeight / 2
+    $container.animate({ scrollTop: Math.max(0, scrollTop) }, 400)
+  }
+
+  async showWalkingDistances(stops) {
+    if (!this._locMgr || !this._locMgr.isPermitted()) return
+    const nearest = this._locMgr.getNearestStops(stops, 4)
+    if (nearest.length === 0) return
+    const userPos = this._locMgr.getPosition()
+    if (!userPos) return
+
+    $('.stop-row').removeClass('nearest-stop')
+    nearest.forEach(n => {
+      $(`.stop-row[data-seq="${n.stop.seq}"]`).addClass('nearest-stop')
+    })
+
+    for (const n of nearest) {
+      const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
+      if ($slot.length === 0) continue
+      $slot.html('<span class="walk-dist-loading">...</span>')
+    }
+
+    for (const n of nearest) {
+      const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
+      if ($slot.length === 0) continue
+      try {
+        const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
+        if (result) {
+          const dist = result.distance < 1000
+            ? Math.round(result.distance) + 'm'
+            : (result.distance / 1000).toFixed(1) + 'km'
+          const dur = Math.round(result.duration / 60)
+          const durLabel = this.lang.t(`${dur}分鐘`, `${dur}min`, `${dur}分钟`)
+          $slot.html(`<span class="walk-dist">${dist} · ${durLabel}</span>`)
+        } else {
+          const distLabel = n.distance < 1000
+            ? Math.round(n.distance) + 'm'
+            : (n.distance / 1000).toFixed(1) + 'km'
+          $slot.html(`<span class="walk-dist">~${distLabel}</span>`)
+        }
+      } catch {
+        const distLabel = n.distance < 1000
+          ? Math.round(n.distance) + 'm'
+          : (n.distance / 1000).toFixed(1) + 'km'
+        $slot.html(`<span class="walk-dist">~${distLabel}</span>`)
+      }
+    }
+  }
+
+  bindStopClickEvents(app) {
+    $('#stopList').on('click', '.stop-row', function () {
+      const seq = $(this).data('seq')
+      const lat = parseFloat($(this).data('lat'))
+      const lng = parseFloat($(this).data('long'))
+      const name = $(this).find('.stop-name').text()
+      if (!isNaN(lat) && !isNaN(lng)) {
+        $(document).trigger('stop:click', [{ seq, lat, lng, name }])
+      }
+    })
   }
 
   // ---------- Floating action buttons ----------

@@ -1,3 +1,6 @@
+const APP_VERSION = '2.1.0'
+const APP_COMMIT = '7f06169'
+
 /**
  * BusTrackerApp — main application controller.
  * Parses URL params, orchestrates RouteManager, EtaManager, UIManager.
@@ -11,9 +14,12 @@ class BusTrackerApp {
     this.etaMgr = new EtaManager(this.api)
     this.ui = new UIManager(this.lang)
     this.mapMgr = new MapManager()
+    this.locMgr = new LocationManager()
 
     this._route = ''
     this._bound = 'O'
+    this._locationReady = false
+    this._hasScrolled = false
 
     this._bindEvents()
   }
@@ -50,6 +56,31 @@ class BusTrackerApp {
     Logger.ui('INIT', 'App starting')
     this.ui.renderDebugButton()
     this.ui.renderMapButton()
+    this.ui.setLocMgr(this.locMgr)
+    this.ui.bindStopClickEvents(this)
+
+    // Request location permission non-blocking; degrade gracefully on denial
+    this.locMgr.requestPermission().then((granted) => {
+      this._locationReady = granted
+      this.ui.updateLocationStatus()
+      if (granted) {
+        this.locMgr.onPosition((pos) => {
+          this.ui.updateLocationStatus()
+          if (this.mapMgr.isVisible()) {
+            this.mapMgr.updateUserPosition(pos)
+          }
+        })
+        if (this._route) {
+          const stops = this.routeMgr.getStops()
+          if (stops.length > 0) {
+            this.ui.scrollToNearestStop(stops)
+            this._hasScrolled = true
+            this.ui.showWalkingDistances(stops)
+          }
+        }
+      }
+    })
+    this.ui.bindLocationEvents(this)
 
     const params = new URLSearchParams(window.location.search)
     const route = params.get('route') || ''
@@ -115,6 +146,11 @@ class BusTrackerApp {
       Logger.api('STOP_ETA', `${stops.length} stops\n${stopLog}`)
 
       this.ui.renderStopList(stops, map, this._company === 'ctb')
+
+      // Re-apply walking distances (but don't re-scroll after first render)
+      if (this._locationReady) {
+        this.ui.showWalkingDistances(stops)
+      }
     })
 
     $(document).on('debug:toggle', () => {
@@ -129,9 +165,28 @@ class BusTrackerApp {
       } else {
         const stops = this.routeMgr.getStops()
         const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
-        await this.mapMgr.load(stops, busPositions, this._company === 'ctb')
+        const userPos = this._locationReady ? this.locMgr.getPosition() : null
+        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
         this.ui.setMapButtonIcon('📋')
       }
+    })
+
+    $(document).on('stop:click', async (e, stopInfo) => {
+      if (!this._locationReady) return
+      const userPos = this.locMgr.getPosition()
+      if (!userPos) return
+
+      // Switch to map view if not already
+      if (!this.mapMgr.isVisible()) {
+        const stops = this.routeMgr.getStops()
+        const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
+        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
+        this.ui.setMapButtonIcon('📋')
+      } else {
+        this.mapMgr.updateUserPosition(userPos)
+      }
+
+      this.mapMgr.showWalkingPath(userPos, stopInfo)
     })
 
     $(document).on('click', '.company-btn', (e) => {
@@ -214,7 +269,17 @@ class BusTrackerApp {
       this.ui.updateRouteHeaderSvc(types)
       this.ui.updateRouteCompany(this._company)
       this.ui.renderStopList(stops, this.etaMgr.getEtaMap(), this._company === 'ctb')
- 
+
+      if (this._locationReady) {
+        setTimeout(() => {
+          if (!this._hasScrolled) {
+            this.ui.scrollToNearestStop(stops)
+            this._hasScrolled = true
+          }
+          this.ui.showWalkingDistances(stops)
+        }, 300)
+      }
+  
       const stopIds = this._company === 'ctb' ? stops.map(s => s.stopId) : null
       this.etaMgr.start(route, bound, types, stopIds)
 
@@ -234,6 +299,8 @@ class BusTrackerApp {
   _tearDownRoute() {
     this.etaMgr.stop()
     this.routeMgr.abort()
+    this.mapMgr.clearWalkingPath()
+    this._hasScrolled = false
   }
 
   _updateUrl(route, bound) {
