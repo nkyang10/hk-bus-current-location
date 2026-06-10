@@ -39,6 +39,8 @@
 | **📌 Recent Routes** | Quick access to last 8 searches, remembers company context |
 | **🛠 Multi-Service Merge** | Auto-discovers and merges all service types (e.g. route 118 types 1/2/3) |
 | **🐛 Debug Panel** | Built-in logger with copy-to-clipboard |
+| **🗺️ Map View** | Leaflet + OpenStreetMap with bus routes, stops, bus positions, and walking paths |
+| **📍 User Location** | Geolocation-aware: nearest stop highlight, walking distance, walking path on map |
 | **📱 Mobile First** | Responsive design for all screen sizes |
 | **⚡ No Build Step** | Open `index.html` in any browser — no npm, no CLI, no bundler |
 
@@ -79,6 +81,9 @@ Drop the project folder on **Cloudflare Pages**, **Netlify**, **GitHub Pages**, 
     ├── route.js          # RouteManager — discover + merge service types
     ├── eta.js            # EtaManager — 30s polling (per-route for KMB, per-stop for CTB)
     ├── ui.js             # UIManager — jQuery DOM rendering
+    ├── geo.js            # GeoUtils — OSRM route geometry, walking paths, haversine
+    ├── map.js            # MapManager — Leaflet map view with stops/buses/routes
+    ├── location.js       # LocationManager — geolocation with permission/watch/retry
     └── app.js            # BusTrackerApp — main controller, company toggle
 ```
 
@@ -131,6 +136,19 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 │  │   ├── KMB: fetchRouteEta() × N types         │
 │  │   └── CTB: fetchEtaForStop() × N stops      │
 │  │   └── polls smartly (10s initial, 60s after stable)                        │
+│  ├── MapManager (map.js)                        │
+│  │   ├── Leaflet map with OSM tiles             │
+│  │   ├── GeoUtils.fetchRouteGeometry() (OSRM)   │
+│  │   ├── GeoUtils.fetchWalkingRoute() (OSRM)    │
+│  │   └── Draws route, stops, buses, user        │
+│  ├── LocationManager (location.js)              │
+│  │   ├── geolocation permission flow            │
+│  │   ├── watchPosition & real-time update       │
+│  │   └── nearest-stop matching                  │
+│  ├── GeoUtils (geo.js)                          │
+│  │   ├── OSRM driving profile → bus route       │
+│  │   ├── OSRM foot profile → walking path       │
+│  │   └── haversine distance calculation         │
 │  ├── UIManager (ui.js)                          │
 │  │   └── jQuery DOM rendering                   │
 │  ├── Logger (logger.js)                         │
@@ -201,6 +219,9 @@ Click the 🐛 button (bottom-right). **"Copy All Log"** exports all runtime log
 | `RouteManager` | `route.js` | Service type discovery, multi-type merge, stop detail fetch, in-memory cache; auto-detects KMB vs CTB |
 | `EtaManager` | `eta.js` | ETA polling (10s→60s adaptive), multi-type merge (KMB) / per-stop parallel fetch (CTB), jQuery custom events |
 | `UIManager` | `ui.js` | All DOM via jQuery, landing/route/debug views, company toggle, ETA formatting, error/loading/empty states |
+| `GeoUtils` | `geo.js` | OSRM driving/foot routing for route geometry + walking paths, haversine distance, nearest-stop finder |
+| `MapManager` | `map.js` | Lazy-loaded Leaflet map, draws bus route / stops / bus icons / user location / walking path |
+| `LocationManager` | `location.js` | Geolocation API with permission flow, `watchPosition`, auto-retry |
 | `BusTrackerApp` | `app.js` | URL parsing, company selection, event binding, navigation orchestration, history management |
 
 ---
@@ -240,6 +261,18 @@ Data source: [data.gov.hk - CTB ETA](https://data.gov.hk/tc-data/dataset/ctb-eta
 > **Bound:** Use full words `outbound`/`inbound` in URLs; responses use `O`/`I`.  
 > **ETA:** Per-stop endpoint — the app fetches all stops in parallel via `Promise.all`.  
 > **Auth:** None — fully public.
+
+### OSRM Routing (Map Geometry)
+
+Used by `GeoUtils` to draw bus route polylines and walking paths on the map.
+
+| Endpoint | Profile | Usage |
+|---|---|---|
+| `routing.openstreetmap.de/routed-car/route/v1/driving/{lng,lat};...` | driving | Bus route geometry between consecutive stops |
+| `routing.openstreetmap.de/routed-foot/route/v1/driving/{lng,lat};...` | foot | Walking path from user to a clicked stop |
+
+Response: `{ code: "Ok", routes: [{ geometry: GeoJSON LineString, distance: meters, duration: seconds }] }`  
+Falls back to straight-line polyline if API is unavailable.
 
 ---
 

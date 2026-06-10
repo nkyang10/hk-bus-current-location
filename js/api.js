@@ -49,8 +49,8 @@ class ApiClient {
   _combine(s1, s2) {
     const c = new AbortController()
     const fn = () => c.abort()
-    s1.addEventListener('abort', fn)
-    s2.addEventListener('abort', fn)
+    s1.addEventListener('abort', fn, { once: true })
+    s2.addEventListener('abort', fn, { once: true })
     if (s1.aborted || s2.aborted) c.abort()
     return c.signal
   }
@@ -136,8 +136,8 @@ class CtbApiClient {
   _combine(s1, s2) {
     const c = new AbortController()
     const fn = () => c.abort()
-    s1.addEventListener('abort', fn)
-    s2.addEventListener('abort', fn)
+    s1.addEventListener('abort', fn, { once: true })
+    s2.addEventListener('abort', fn, { once: true })
     if (s1.aborted || s2.aborted) c.abort()
     return c.signal
   }

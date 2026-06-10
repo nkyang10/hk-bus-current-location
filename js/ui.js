@@ -8,6 +8,7 @@ class UIManager {
     this._debugOpen = false
     this._logInterval = null
     this._locMgr = null
+    this._autoScroll = true
   }
 
   // ---------- Top-level render ----------
@@ -295,7 +296,8 @@ class UIManager {
     const rowHeight = $target.outerHeight(true)
     const offset = $target.position().top
     const scrollTop = offset - containerHeight / 2 + rowHeight / 2
-    $container.animate({ scrollTop: Math.max(0, scrollTop) }, 400)
+    const el = $container[0]
+    if (el) el.scrollTo({ top: Math.max(0, scrollTop), behavior: 'smooth' })
   }
 
   async showWalkingDistances(stops) {
@@ -401,7 +403,7 @@ class UIManager {
           <div class="debug-header">
             <span class="debug-title">🐛 Debug Log <span class="debug-count" id="debugCount">0</span></span>
             <div class="debug-actions">
-              <button class="debug-btn-sm" id="debugAutoScroll">Auto ${this._logAutoScroll !== false ? 'ON' : 'OFF'}</button>
+              <button class="debug-btn-sm" id="debugAutoScroll">Auto ${this._autoScroll ? 'ON' : 'OFF'}</button>
               <button class="debug-btn-sm" id="debugClear">🗑️</button>
               <button class="debug-btn-copy" id="debugCopy">📋 Copy All Log</button>
             </div>
@@ -422,13 +424,12 @@ class UIManager {
 
     $('#debugCopy').on('click', () => this._copyLogs())
     $('#debugClear').on('click', () => { Logger.clear(); this._refreshDebugLog() })
-    $('#debugAutoScroll').on('click', function() {
-      const on = $(this).text().includes('ON')
-      $(this).text(on ? 'Auto OFF' : 'Auto ON')
-      window._debugAutoScroll = !on
+    $('#debugAutoScroll').on('click', () => {
+      this._autoScroll = !this._autoScroll
+      $('#debugAutoScroll').text(this._autoScroll ? 'Auto ON' : 'Auto OFF')
     })
     $('#debugFilter').on('input', () => this._refreshDebugLog())
-    this._logAutoScroll = true
+    this._autoScroll = true
     this._refreshDebugLog()
     if (this._logInterval) clearInterval(this._logInterval)
     this._logInterval = setInterval(() => this._refreshDebugLog(), 1000)
@@ -465,7 +466,7 @@ class UIManager {
       </div>`
     })
     body.html(html || '<div class="log-empty">No entries</div>')
-    if (window._debugAutoScroll !== false) body.scrollTop(body[0].scrollHeight)
+    if (this._autoScroll) body.scrollTop(body[0].scrollHeight)
   }
 
   _copyLogs() {

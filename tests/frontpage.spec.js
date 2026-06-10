@@ -93,13 +93,13 @@ test.describe('Frontpage — Switch Language', () => {
     await expect(langBtn).toHaveText('EN')
 
     const titleEn = page.locator('.landing-title')
-    await expect(titleEn).toContainText('HK Bus Tracker')
+    await expect(titleEn).toContainText('KMB Bus Tracker')
 
     await langBtn.click()
     await expect(langBtn).toHaveText('简')
 
     const titleSc = page.locator('.landing-title')
-    await expect(titleSc).toContainText('巴士动态')
+    await expect(titleSc).toContainText('九巴即时到站')
 
     await langBtn.click()
     await expect(langBtn).toHaveText('繁')
@@ -144,7 +144,7 @@ test.describe('Frontpage — Switch Language', () => {
     await expect(langBtnAfter).toHaveText('EN')
 
     const title = page.locator('.landing-title')
-    await expect(title).toContainText('HK Bus Tracker')
+    await expect(title).toContainText('KMB Bus Tracker')
   })
 
   test('should update search button text when language changes', async ({ page }) => {

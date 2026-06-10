@@ -60,8 +60,7 @@ class LocationManager {
     if (!navigator.geolocation) return 'unavailable'
     if (this._permitted && this._position) return 'granted'
     if (this._permitted && !this._position) return 'unknown'
-    if (!this._permitted) return 'denied'
-    return 'unknown'
+    return 'denied'
   }
 
   getNearestStops(stops, count) {

@@ -9,7 +9,8 @@ if [ ! -f "$FILE" ]; then
   exit 0
 fi
 
-sed -i "s/^const APP_VERSION = '.*'/const APP_VERSION = '2.1.0 ($HASH)'/" "$FILE"
+sed -i.bak "s/^const APP_VERSION = '.*'/const APP_VERSION = '2.1.0 ($HASH)'/" "$FILE"
+rm -f "$FILE.bak"
 git add "$FILE"
 
 echo "pre-commit: APP_VERSION → 2.1.0 ($HASH)"

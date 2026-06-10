@@ -1,4 +1,4 @@
-const APP_VERSION = '2.1.0 (d0080d41)'
+const APP_VERSION = '2.1.0 (fbda7cd3)'
 
 /**
  * BusTrackerApp — main application controller.
@@ -266,7 +266,7 @@ class BusTrackerApp {
     this.mapMgr.hide()
     this.ui.showMapButton(true)
     this.ui.setMapButtonIcon('🗺️')
-    const loadingTimer = setTimeout(() => this.ui.showStopListLoading(), 10000)
+    const loadingTimer = setTimeout(() => this.ui.showStopListLoading(), 5000)
 
     try {
       await this.routeMgr.load(route, bound)
