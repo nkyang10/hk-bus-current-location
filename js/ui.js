@@ -99,8 +99,8 @@ class UIManager {
         </div>
 
         <div class="bound-toggle" id="boundToggle">
-          <button class="bound-btn ${bound === 'O' ? 'active' : ''}" data-bound="O">${this.lang.t('往程 Outbound', 'Outbound', '往程 Outbound')}</button>
-          <button class="bound-btn ${bound === 'I' ? 'active' : ''}" data-bound="I">${this.lang.t('返程 Inbound', 'Inbound', '返程 Inbound')}</button>
+          <button class="bound-btn ${bound === 'O' ? 'active' : ''}" data-bound="O"></button>
+          <button class="bound-btn ${bound === 'I' ? 'active' : ''}" data-bound="I"></button>
         </div>
 
         <div class="eta-bar" id="etaBar" style="display:none">
@@ -154,10 +154,13 @@ class UIManager {
     if (!info) return
     const dest = this.lang.t(info.dest_tc, info.dest_en, info.dest_sc)
     $(`#boundToggle .bound-btn[data-bound="${currentBound}"]`).text(dest)
+    const otherBound = currentBound === 'O' ? 'I' : 'O'
     if (otherInfo) {
       const otherDest = this.lang.t(otherInfo.dest_tc, otherInfo.dest_en, otherInfo.dest_sc)
-      const otherBound = currentBound === 'O' ? 'I' : 'O'
       $(`#boundToggle .bound-btn[data-bound="${otherBound}"]`).text(otherDest)
+    } else {
+      const fallback = this.lang.t(info.orig_tc, info.orig_en, info.orig_sc)
+      $(`#boundToggle .bound-btn[data-bound="${otherBound}"]`).text(fallback)
     }
   }
 
