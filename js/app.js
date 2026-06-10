@@ -1,4 +1,4 @@
-const APP_VERSION = '2.1.0 (487481e)'
+const APP_VERSION = '2.1.0 (5fb10e1)'
 
 /**
  * BusTrackerApp — main application controller.
