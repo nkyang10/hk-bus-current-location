@@ -59,8 +59,9 @@ class LocationManager {
   getStatus() {
     if (!navigator.geolocation) return 'unavailable'
     if (this._permitted && this._position) return 'granted'
-    if (!this._permitted && this._position === null) return 'unknown'
-    return 'denied'
+    if (this._permitted && !this._position) return 'unknown'
+    if (!this._permitted) return 'denied'
+    return 'unknown'
   }
 
   haversineDistance(lat1, lng1, lat2, lng2) {

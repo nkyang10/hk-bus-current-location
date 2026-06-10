@@ -20,6 +20,7 @@ class BusTrackerApp {
     this._bound = 'O'
     this._locationReady = false
     this._hasScrolled = false
+    this._stopsLoaded = false
 
     this._bindEvents()
   }
@@ -69,15 +70,13 @@ class BusTrackerApp {
           if (this.mapMgr.isVisible()) {
             this.mapMgr.updateUserPosition(pos)
           }
-        })
-        if (this._route) {
-          const stops = this.routeMgr.getStops()
-          if (stops.length > 0) {
-            this.ui.scrollToNearestStop(stops)
-            this._hasScrolled = true
-            this.ui.showWalkingDistances(stops)
+          if (this._stopsLoaded && !this._hasScrolled) {
+            this._applyLocationFeatures()
           }
-        }
+        })
+      }
+      if (this._stopsLoaded) {
+        this._applyLocationFeatures()
       }
     })
     this.ui.bindLocationEvents(this)
@@ -147,8 +146,7 @@ class BusTrackerApp {
 
       this.ui.renderStopList(stops, map, this._company === 'ctb')
 
-      // Re-apply walking distances (but don't re-scroll after first render)
-      if (this._locationReady) {
+      if (this._locationReady && this._stopsLoaded) {
         this.ui.showWalkingDistances(stops)
       }
     })
@@ -172,21 +170,28 @@ class BusTrackerApp {
     })
 
     $(document).on('stop:click', async (e, stopInfo) => {
-      if (!this._locationReady) return
-      const userPos = this.locMgr.getPosition()
-      if (!userPos) return
+      // Always switch to map view on stop click
+      const stops = this.routeMgr.getStops()
+      const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
 
-      // Switch to map view if not already
       if (!this.mapMgr.isVisible()) {
-        const stops = this.routeMgr.getStops()
-        const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
+        const userPos = this._locationReady ? this.locMgr.getPosition() : null
         await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
         this.ui.setMapButtonIcon('📋')
       } else {
-        this.mapMgr.updateUserPosition(userPos)
+        if (this._locationReady) {
+          const userPos = this.locMgr.getPosition()
+          if (userPos) this.mapMgr.updateUserPosition(userPos)
+        }
       }
 
-      this.mapMgr.showWalkingPath(userPos, stopInfo)
+      // Draw walking path if location is available
+      if (this._locationReady) {
+        const userPos = this.locMgr.getPosition()
+        if (userPos) {
+          this.mapMgr.showWalkingPath(userPos, stopInfo)
+        }
+      }
     })
 
     $(document).on('click', '.company-btn', (e) => {
@@ -233,6 +238,19 @@ class BusTrackerApp {
     })
   }
 
+  _applyLocationFeatures() {
+    if (!this._locationReady || !this._stopsLoaded) return
+    const stops = this.routeMgr.getStops()
+    if (!stops || stops.length === 0) return
+    setTimeout(() => {
+      if (!this._hasScrolled) {
+        this.ui.scrollToNearestStop(stops)
+        this._hasScrolled = true
+      }
+      this.ui.showWalkingDistances(stops)
+    }, 300)
+  }
+
   _searchRoute(route) {
     this._saveRecent(route)
     this._route = route
@@ -269,16 +287,9 @@ class BusTrackerApp {
       this.ui.updateRouteHeaderSvc(types)
       this.ui.updateRouteCompany(this._company)
       this.ui.renderStopList(stops, this.etaMgr.getEtaMap(), this._company === 'ctb')
+      this._stopsLoaded = true
 
-      if (this._locationReady) {
-        setTimeout(() => {
-          if (!this._hasScrolled) {
-            this.ui.scrollToNearestStop(stops)
-            this._hasScrolled = true
-          }
-          this.ui.showWalkingDistances(stops)
-        }, 300)
-      }
+      this._applyLocationFeatures()
   
       const stopIds = this._company === 'ctb' ? stops.map(s => s.stopId) : null
       this.etaMgr.start(route, bound, types, stopIds)
@@ -301,6 +312,7 @@ class BusTrackerApp {
     this.routeMgr.abort()
     this.mapMgr.clearWalkingPath()
     this._hasScrolled = false
+    this._stopsLoaded = false
   }
 
   _updateUrl(route, bound) {

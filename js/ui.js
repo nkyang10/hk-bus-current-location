@@ -267,15 +267,16 @@ class UIManager {
         app.ui.updateLocationStatus()
         if (granted) {
           app.locMgr.onPosition((pos) => {
+            app.ui.updateLocationStatus()
             if (app.mapMgr.isVisible()) {
               app.mapMgr.updateUserPosition(pos)
             }
+            if (app._stopsLoaded) {
+              app._applyLocationFeatures()
+            }
           })
-          const stops = app.routeMgr.getStops()
-          if (stops.length > 0) {
-            app.ui.scrollToNearestStop(stops)
-            app._hasScrolled = true
-            app.ui.showWalkingDistances(stops)
+          if (app._stopsLoaded) {
+            app._applyLocationFeatures()
           }
         }
       })
@@ -309,37 +310,44 @@ class UIManager {
       $(`.stop-row[data-seq="${n.stop.seq}"]`).addClass('nearest-stop')
     })
 
+    // Cache for walking distances to avoid flicker on re-render
+    if (!this._walkCache) this._walkCache = {}
+
+    // Show cached values immediately, or "..." for new ones
     for (const n of nearest) {
       const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
       if ($slot.length === 0) continue
-      $slot.html('<span class="walk-dist-loading">...</span>')
+      const cacheKey = `${n.stop.lat},${n.stop.long}`
+      if (this._walkCache[cacheKey]) {
+        $slot.html(this._walkCache[cacheKey])
+      } else {
+        $slot.html('<span class="walk-dist-loading">...</span>')
+      }
     }
 
-    for (const n of nearest) {
+    // Fetch distances in parallel
+    const fetchPromises = nearest.map(async (n) => {
       const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
-      if ($slot.length === 0) continue
+      if ($slot.length === 0) return
+      const cacheKey = `${n.stop.lat},${n.stop.long}`
       try {
         const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
+        let html
         if (result) {
           const dist = result.distance < 1000
             ? Math.round(result.distance) + 'm'
             : (result.distance / 1000).toFixed(1) + 'km'
           const dur = Math.round(result.duration / 60)
           const durLabel = this.lang.t(`${dur}分鐘`, `${dur}min`, `${dur}分钟`)
-          $slot.html(`<span class="walk-dist">${dist} · ${durLabel}</span>`)
-        } else {
-          const distLabel = n.distance < 1000
-            ? Math.round(n.distance) + 'm'
-            : (n.distance / 1000).toFixed(1) + 'km'
-          $slot.html(`<span class="walk-dist">~${distLabel}</span>`)
+          html = `<span class="walk-dist">🚶&nbsp;${dist}&nbsp;·&nbsp;${durLabel}</span>`
         }
-      } catch {
-        const distLabel = n.distance < 1000
-          ? Math.round(n.distance) + 'm'
-          : (n.distance / 1000).toFixed(1) + 'km'
-        $slot.html(`<span class="walk-dist">~${distLabel}</span>`)
-      }
-    }
+        if (html) {
+          this._walkCache[cacheKey] = html
+          $slot.html(html)
+        }
+      } catch {}
+    })
+    await Promise.all(fetchPromises)
   }
 
   bindStopClickEvents(app) {
