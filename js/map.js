@@ -22,8 +22,11 @@ class MapManager {
       this._loaded = true
     }
 
-    const $container = $('#mapView')
-    if ($container.length === 0) return
+    const $view = $('#mapView')
+    if ($view.length === 0) return
+
+    // Show container first so Leaflet can measure dimensions
+    $view.show()
 
     if (!this._map) {
       this._map = L.map('routeMap')
@@ -43,6 +46,9 @@ class MapManager {
     this._drawStops(stops)
     this._drawBuses(busPositions, stops)
     this._fitBounds(stops)
+
+    // Ensure map is properly sized after layers added
+    setTimeout(() => this._map.invalidateSize(), 150)
   }
 
   _loadLeaflet() {
@@ -141,10 +147,8 @@ class MapManager {
   }
 
   show() {
-    const $view = $('#mapView')
-    if ($view.length === 0) return
-    $view.show()
     if (this._map) {
+      $('#mapView').show()
       setTimeout(() => this._map.invalidateSize(), 150)
     }
   }

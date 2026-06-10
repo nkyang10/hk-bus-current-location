@@ -128,7 +128,6 @@ class BusTrackerApp {
         const stops = this.routeMgr.getStops()
         const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
         await this.mapMgr.load(stops, busPositions, this._company === 'ctb')
-        this.mapMgr.show()
         $('#viewToggleBtn').text('📋')
       }
     })
