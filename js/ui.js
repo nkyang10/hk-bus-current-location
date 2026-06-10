@@ -99,8 +99,8 @@ class UIManager {
         </div>
 
         <div class="bound-toggle" id="boundToggle">
-          <button class="bound-btn ${bound === 'O' ? 'active' : ''}" data-bound="O"></button>
-          <button class="bound-btn ${bound === 'I' ? 'active' : ''}" data-bound="I"></button>
+          <button class="bound-btn ${bound === 'O' ? 'active' : ''}" data-bound="O">&nbsp;</button>
+          <button class="bound-btn ${bound === 'I' ? 'active' : ''}" data-bound="I">&nbsp;</button>
         </div>
 
         <div class="eta-bar" id="etaBar" style="display:none">
