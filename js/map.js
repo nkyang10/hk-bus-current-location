@@ -216,16 +216,16 @@ class MapManager {
       iconSize: [18, 18],
       iconAnchor: [9, 9],
     })
-    this._walkStopMarker = L.marker([toStop.lat, toStop.long], { icon: highlightIcon }).addTo(this._map)
+    this._walkStopMarker = L.marker([toStop.lat, toStop.lng], { icon: highlightIcon }).addTo(this._map)
 
     // Draw walking path (OSRM road-following, or fallback straight line)
-    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.long })
+    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.lng })
     if (geometry) {
       this._walkLayer = L.geoJSON(geometry, {
         style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
       }).addTo(this._map)
     } else {
-      this._walkLayer = L.polyline([[from.lat, from.lng], [toStop.lat, toStop.long]], {
+      this._walkLayer = L.polyline([[from.lat, from.lng], [toStop.lat, toStop.lng]], {
         color: '#3b82f6',
         weight: 3,
         opacity: 0.6,
