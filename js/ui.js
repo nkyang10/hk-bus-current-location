@@ -332,7 +332,7 @@ class UIManager {
       if ($slot.length === 0) return
       const cacheKey = `${userKey}-${n.stop.lat},${n.stop.long}`
       try {
-        const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
+        const result = await GeoUtils.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
         let html
         if (result && result.distance > 0) {
           const unreliable = result.distance > n.distance * 2

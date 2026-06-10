@@ -1,10 +1,10 @@
 /**
  * MapManager — lazy-loads Leaflet + renders route map with stops & bus icons.
  * Public API:
- *   load(stops, busPositions, isCtb)  → Promise
- *   show()
- *   hide()
- *   isVisible()
+ *   load(stops, busPositions, isCtb, userPos) → Promise
+ *   show() / hide() / isVisible()
+ *   centerOnStop(stopInfo) / showWalkingPath(from, toStop) / clearWalkingPath()
+ *   updateUserPosition(pos)
  */
 class MapManager {
   constructor() {
@@ -16,13 +16,17 @@ class MapManager {
     this._userMarker = null
     this._walkLayer = null
     this._walkStopMarker = null
-    this._initCoords = null
   }
 
   async load(stops, busPositions, isCtb, userPos) {
-    if (!this._loaded) {
-      await this._loadLeaflet()
-      this._loaded = true
+    try {
+      if (!this._loaded) {
+        await this._loadLeaflet()
+        this._loaded = true
+      }
+    } catch (e) {
+      Logger.error('MAP', 'Leaflet load failed: ' + e.message)
+      return
     }
 
     const $view = $('#mapView')
@@ -30,11 +34,9 @@ class MapManager {
 
     $view.show()
 
-    if (!this._map) {
-      this._map = L.map('routeMap', {
-        center: [22.3, 114.2],
-        zoom: 12,
-      })
+    if (!this._map || !this._hasContainer()) {
+      if (this._map) { this._map.remove(); this._map = null }
+      this._map = L.map('routeMap', { center: [22.3, 114.2], zoom: 12 })
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
@@ -43,23 +45,75 @@ class MapManager {
 
     this._clearLayers()
 
-    try {
-      const geometry = await this._fetchRouteGeometry(stops)
-      if (geometry) {
-        try { this._drawRoute(geometry, isCtb) } catch (e) { Logger.warn('MAP', 'Route draw: ' + e.message) }
-      }
-      try { this._drawStops(stops) } catch (e) { Logger.warn('MAP', 'Stops draw: ' + e.message) }
-      try { this._drawBuses(busPositions, stops) } catch (e) { Logger.warn('MAP', 'Buses draw: ' + e.message) }
-      if (userPos) {
-        try { this._drawUserLocation(userPos) } catch (e) { Logger.warn('MAP', 'User loc draw: ' + e.message) }
-      }
-    } catch (err) {
-      Logger.warn('MAP', 'Other error: ' + err.message)
+    const geometry = await GeoUtils.fetchRouteGeometry(stops)
+    if (geometry) {
+      try { this._drawRoute(geometry, isCtb) } catch (e) { Logger.warn('MAP', 'Route draw: ' + e.message) }
+    }
+    try { this._drawStops(stops) } catch (e) { Logger.warn('MAP', 'Stops draw: ' + e.message) }
+    try { this._drawBuses(busPositions, stops) } catch (e) { Logger.warn('MAP', 'Buses draw: ' + e.message) }
+    if (userPos) {
+      try { this._drawUserLocation(userPos) } catch (e) { Logger.warn('MAP', 'User loc draw: ' + e.message) }
     }
 
     this._fitBoundsSafe(stops, userPos)
-
     setTimeout(() => this._map.invalidateSize(), 150)
+  }
+
+  show() {
+    if (this._map) {
+      $('#mapView').show()
+      setTimeout(() => this._map.invalidateSize(), 150)
+    }
+  }
+
+  hide() {
+    $('#mapView').hide()
+  }
+
+  isVisible() {
+    return $('#mapView').is(':visible')
+  }
+
+  centerOnStop(stopInfo) {
+    if (!this._map) return
+    this.clearWalkingPath()
+    this._map.setView([stopInfo.lat, stopInfo.lng], 16)
+  }
+
+  async showWalkingPath(from, toStop) {
+    if (!this._map) return
+    this.clearWalkingPath()
+
+    const highlightIcon = L.divIcon({
+      html: '<div class="stop-highlight-dot"></div>',
+      className: '',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9],
+    })
+    this._walkStopMarker = L.marker([toStop.lat, toStop.lng], { icon: highlightIcon }).addTo(this._map)
+
+    const geometry = await GeoUtils.fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.lng })
+    this._walkLayer = geometry
+      ? L.geoJSON(geometry, {
+          style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
+        }).addTo(this._map)
+      : L.polyline([[from.lat, from.lng], [toStop.lat, toStop.lng]], {
+          color: '#3b82f6', weight: 3, opacity: 0.6, dashArray: '10,10',
+        }).addTo(this._map)
+  }
+
+  clearWalkingPath() {
+    if (!this._map) return
+    if (this._walkLayer) { this._map.removeLayer(this._walkLayer); this._walkLayer = null }
+    if (this._walkStopMarker) { this._map.removeLayer(this._walkStopMarker); this._walkStopMarker = null }
+  }
+
+  updateUserPosition(pos) {
+    if (this._userMarker) this._userMarker.setLatLng([pos.lat, pos.lng])
+  }
+
+  _hasContainer() {
+    return !!document.getElementById('routeMap')
   }
 
   _loadLeaflet() {
@@ -72,7 +126,7 @@ class MapManager {
       const script = document.createElement('script')
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
       script.onload = resolve
-      script.onerror = () => reject(new Error('Leaflet failed to load'))
+      script.onerror = () => reject(new Error('Leaflet CDN load failed'))
       document.head.appendChild(script)
     })
   }
@@ -86,25 +140,6 @@ class MapManager {
     this._busMarkers.forEach(m => this._map.removeLayer(m))
     this._busMarkers = []
     this.clearWalkingPath()
-  }
-
-  async _fetchRouteGeometry(stops) {
-    const valid = stops.filter(s => s.lat && s.long)
-    if (valid.length < 2) return null
-
-    const coords = valid.map(s => `${s.long},${s.lat}`).join(';')
-    const url = `https://router.project-osrm.org/route/v1/driving/${coords}?geometries=geojson&overview=full`
-
-    try {
-      const res = await fetch(url)
-      const data = await res.json()
-      if (data.routes && data.routes[0]) {
-        return data.routes[0].geometry
-      }
-    } catch {
-      Logger.warn('OSRM', 'Route fetch failed, fallback to straight lines')
-    }
-    return null
   }
 
   _drawRoute(geometry, isCtb) {
@@ -124,46 +159,60 @@ class MapManager {
         weight: 2,
         fillOpacity: 1,
       }).addTo(this._map)
-      const name = this._stopName(stop, idx)
-      marker.bindPopup(`<b>${idx + 1}. ${name}</b>`)
+      marker.bindPopup(`<b>${idx + 1}. ${this._stopName(stop, idx)}</b>`)
       this._stopMarkers.push(marker)
     })
   }
 
   _drawBuses(busPositions, stops) {
+    const idxBySeq = {}
+    stops.forEach((s, i) => { idxBySeq[s.seq] = i })
+
     busPositions.forEach(pos => {
-      const cur = stops.find(s => s.seq === pos.afterSeq)
-      const next = stops[stops.indexOf(cur) + 1]
+      const idx = idxBySeq[pos.afterSeq]
+      if (idx == null) return
+      const cur = stops[idx]
+      const next = stops[idx + 1]
       if (!cur || !next) return
       if (cur.lat == null || cur.long == null || next.lat == null || next.long == null) return
       if (!isFinite(cur.lat) || !isFinite(cur.long) || !isFinite(next.lat) || !isFinite(next.long)) return
-      const lat = (cur.lat + next.lat) / 2
-      const lng = (cur.long + next.long) / 2
+
       const icon = L.divIcon({
         html: '<span class="bus-map-icon">🚌</span>',
         className: '',
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       })
-      const marker = L.marker([lat, lng], { icon }).addTo(this._map)
-      this._busMarkers.push(marker)
+      const lat = (cur.lat + next.lat) / 2
+      const lng = (cur.long + next.long) / 2
+      this._busMarkers.push(L.marker([lat, lng], { icon }).addTo(this._map))
     })
   }
 
   _fitBoundsSafe(stops, userPos) {
     try {
-      const allLats = stops.filter(s => s.lat != null && isFinite(s.lat)).map(s => s.lat)
-      const allLngs = stops.filter(s => s.long != null && isFinite(s.long)).map(s => s.long)
+      const allLats = []
+      const allLngs = []
+      stops.forEach(s => {
+        if (s.lat != null && isFinite(s.lat) && s.long != null && isFinite(s.long)) {
+          allLats.push(s.lat)
+          allLngs.push(s.long)
+        }
+      })
       if (userPos && isFinite(userPos.lat) && isFinite(userPos.lng)) {
         allLats.push(userPos.lat)
         allLngs.push(userPos.lng)
       }
-      if (allLats.length === 0 || allLngs.length === 0) { this._map.setView([22.3, 114.2], 11); return }
-      const bounds = L.latLngBounds(
-        [Math.min(...allLats), Math.min(...allLngs)],
-        [Math.max(...allLats), Math.max(...allLngs)],
-      )
-      this._map.fitBounds(bounds, { padding: [50, 50] })
+      if (allLats.length === 0) { this._map.setView([22.3, 114.2], 11); return }
+
+      let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity
+      for (let i = 0; i < allLats.length; i++) {
+        if (allLats[i] < minLat) minLat = allLats[i]
+        if (allLats[i] > maxLat) maxLat = allLats[i]
+        if (allLngs[i] < minLng) minLng = allLngs[i]
+        if (allLngs[i] > maxLng) maxLng = allLngs[i]
+      }
+      this._map.fitBounds(L.latLngBounds([minLat, minLng], [maxLat, maxLng]), { padding: [50, 50] })
     } catch {
       this._map.setView([22.3, 114.2], 11)
     }
@@ -171,17 +220,6 @@ class MapManager {
 
   _stopName(stop, idx) {
     return stop.name_tc || stop.name_en || `Stop ${idx + 1}`
-  }
-
-  show() {
-    if (this._map) {
-      $('#mapView').show()
-      setTimeout(() => this._map.invalidateSize(), 150)
-    }
-  }
-
-  hide() {
-    $('#mapView').hide()
   }
 
   _drawUserLocation(pos) {
@@ -192,77 +230,5 @@ class MapManager {
       iconAnchor: [10, 10],
     })
     this._userMarker = L.marker([pos.lat, pos.lng], { icon }).addTo(this._map)
-  }
-
-  updateUserPosition(pos) {
-    if (this._userMarker) {
-      this._userMarker.setLatLng([pos.lat, pos.lng])
-    }
-  }
-
-  centerOnStop(stopInfo) {
-    if (!this._map) return
-    this.clearWalkingPath()
-    this._map.setView([stopInfo.lat, stopInfo.lng], 16)
-  }
-
-  async showWalkingPath(from, toStop) {
-    this.clearWalkingPath()
-
-    // Highlight the clicked stop
-    const highlightIcon = L.divIcon({
-      html: '<div class="stop-highlight-dot"></div>',
-      className: '',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
-    })
-    this._walkStopMarker = L.marker([toStop.lat, toStop.lng], { icon: highlightIcon }).addTo(this._map)
-
-    // Draw walking path (OSRM road-following route, or fallback straight line)
-    const geometry = await this._fetchWalkingRoute(from, { lat: toStop.lat, lng: toStop.lng })
-    if (geometry) {
-      this._walkLayer = L.geoJSON(geometry, {
-        style: { color: '#3b82f6', weight: 5, opacity: 0.8, dashArray: '8,8' },
-      }).addTo(this._map)
-    } else {
-      this._walkLayer = L.polyline([[from.lat, from.lng], [toStop.lat, toStop.lng]], {
-        color: '#3b82f6',
-        weight: 3,
-        opacity: 0.6,
-        dashArray: '10,10',
-      }).addTo(this._map)
-    }
-  }
-
-  clearWalkingPath() {
-    if (this._walkLayer) { this._map.removeLayer(this._walkLayer); this._walkLayer = null }
-    if (this._walkStopMarker) { this._map.removeLayer(this._walkStopMarker); this._walkStopMarker = null }
-  }
-
-  _fetchWalkingRoute(from, to) {
-    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
-    return fetch(url)
-      .then(res => {
-        if (!res.ok) { Logger.warn('MAP', `BRouter HTTP ${res.status}`); return null }
-        return res.text()
-      })
-      .then(text => {
-        if (!text) return null
-        let data
-        try { data = JSON.parse(text) } catch { return null }
-        if (data.features && data.features.length > 0) {
-          return data.features[0].geometry
-        }
-        Logger.warn('MAP', 'BRouter: no features')
-        return null
-      })
-      .catch(err => {
-        Logger.warn('MAP', `BRouter error: ${err.message}`)
-        return null
-      })
-  }
-
-  isVisible() {
-    return $('#mapView').is(':visible')
   }
 }

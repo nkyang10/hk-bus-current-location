@@ -64,77 +64,8 @@ class LocationManager {
     return 'unknown'
   }
 
-  haversineDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371000
-    const toRad = (d) => d * Math.PI / 180
-    const dLat = toRad(lat2 - lat1)
-    const dLng = toRad(lng2 - lng1)
-    const a = Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  }
-
   getNearestStops(stops, count) {
-    if (!this._position || !stops) return []
-    const withDist = stops
-      .filter(s => s.lat != null && s.long != null && isFinite(s.lat) && isFinite(s.long))
-      .map(s => ({
-        stop: s,
-        distance: this.haversineDistance(this._position.lat, this._position.lng, s.lat, s.long),
-      }))
-      .sort((a, b) => a.distance - b.distance)
-    return withDist.slice(0, count || 4)
-  }
-
-  async fetchWalkingDistance(from, to) {
-    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
-    try {
-      const res = await fetch(url, { mode: 'cors' })
-      if (!res.ok) {
-        Logger.warn('LOC', `BRouter HTTP ${res.status}: ${res.statusText}`)
-        return null
-      }
-      const text = await res.text()
-      let data
-      try { data = JSON.parse(text) } catch {
-        Logger.warn('LOC', `BRouter not JSON: ${text.slice(0,200)}`)
-        return null
-      }
-      if (data.features && data.features.length > 0) {
-        const props = data.features[0].properties
-        return {
-          distance: Math.round(props['track-length'] || props['distance'] || 0),
-          duration: Math.round((props['total-time'] || props['time'] || 0) / 60)
-        }
-      }
-      Logger.warn('LOC', 'BRouter: no features')
-    } catch (err) {
-      Logger.warn('LOC', `BRouter error: ${err.message}`)
-    }
-    return null
-  }
-
-  async fetchWalkingRoute(from, to) {
-    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
-    try {
-      const res = await fetch(url)
-      if (!res.ok) {
-        Logger.warn('LOC', `BRouter HTTP ${res.status}`)
-        return null
-      }
-      const text = await res.text()
-      let data
-      try { data = JSON.parse(text) } catch {
-        Logger.warn('LOC', 'BRouter not JSON')
-        return null
-      }
-      if (data.features && data.features.length > 0) {
-        return data.features[0].geometry
-      }
-    } catch (err) {
-      Logger.warn('LOC', `BRouter error: ${err.message}`)
-    }
-    return null
+    return GeoUtils.getNearestStops(this._position, stops, count)
   }
 
   destroy() {

@@ -163,7 +163,7 @@ class BusTrackerApp {
         const stops = this.routeMgr.getStops()
         const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
         const userPos = this._locationReady ? this.locMgr.getPosition() : null
-        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
+        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos).catch(() => {})
         this.ui.setMapButtonIcon('📋')
       }
     })
@@ -174,7 +174,7 @@ class BusTrackerApp {
 
       if (!this.mapMgr.isVisible()) {
         const userPos = this._locationReady ? this.locMgr.getPosition() : null
-        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos)
+        await this.mapMgr.load(stops, busPositions, this._company === 'ctb', userPos).catch(() => {})
         this.ui.setMapButtonIcon('📋')
       }
 
