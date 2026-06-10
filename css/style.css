@@ -105,7 +105,7 @@ a { color: #E31837; }
   display: flex; align-items: center; gap: 8px;
   padding: 8px 12px; background: #fff; border-bottom: 1px solid #e5e7eb;
 }
-.toolbar-search { flex: 1; display: flex; gap: 6px; align-items: center; max-width: 400px; }
+.toolbar-search { flex: 1; display: flex; gap: 6px; align-items: center; }
 .toolbar-input { flex: 1; }
 .back-btn {
   background: none; border: none; font-size: 22px; cursor: pointer;
