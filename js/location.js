@@ -90,6 +90,10 @@ class LocationManager {
     const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     try {
       const res = await fetch(url)
+      if (!res.ok) {
+        Logger.warn('LOC', `BRouter HTTP error: ${res.status}`)
+        return null
+      }
       const data = await res.json()
       if (data.features && data.features.length > 0) {
         const props = data.features[0].properties
@@ -98,8 +102,9 @@ class LocationManager {
           duration: props['total-time'],
         }
       }
-    } catch {
-      Logger.warn('LOC', 'Walking distance fetch failed')
+      Logger.warn('LOC', 'BRouter: no features in response')
+    } catch (err) {
+      Logger.warn('LOC', `Walking distance fetch failed: ${err.message}`)
     }
     return null
   }
@@ -108,12 +113,17 @@ class LocationManager {
     const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     try {
       const res = await fetch(url)
+      if (!res.ok) {
+        Logger.warn('LOC', `BRouter HTTP error: ${res.status}`)
+        return null
+      }
       const data = await res.json()
       if (data.features && data.features.length > 0) {
         return data.features[0].geometry
       }
-    } catch {
-      Logger.warn('LOC', 'Walking route fetch failed')
+      Logger.warn('LOC', 'BRouter: no features in response')
+    } catch (err) {
+      Logger.warn('LOC', `Walking route fetch failed: ${err.message}`)
     }
     return null
   }

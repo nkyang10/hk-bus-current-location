@@ -242,14 +242,25 @@ class MapManager {
   _fetchWalkingRoute(from, to) {
     const url = `https://brouter.de/brouter/?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson`
     return fetch(url)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          Logger.warn('MAP', `BRouter HTTP error: ${res.status}`)
+          return null
+        }
+        return res.json()
+      })
       .then(data => {
+        if (!data) return null
         if (data.features && data.features.length > 0) {
           return data.features[0].geometry
         }
+        Logger.warn('MAP', 'BRouter: no features in response')
         return null
       })
-      .catch(() => null)
+      .catch(err => {
+        Logger.warn('MAP', `BRouter fetch error: ${err.message}`)
+        return null
+      })
   }
 
   isVisible() {
