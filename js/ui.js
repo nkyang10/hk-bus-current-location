@@ -352,7 +352,7 @@ class UIManager {
   }
 
   bindStopClickEvents(app) {
-    $('#stopList').on('click', '.stop-row', function () {
+    $(document).on('click', '#stopList .stop-row', function () {
       const seq = $(this).data('seq')
       const lat = parseFloat($(this).data('lat'))
       const lng = parseFloat($(this).data('long'))
