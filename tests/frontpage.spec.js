@@ -37,7 +37,7 @@ test.describe('Frontpage — Switch Company', () => {
     await expect(ctbBtn).not.toHaveClass(/active/)
 
     const title = page.locator('.landing-title')
-    await expect(title).toContainText('香港巴士動態')
+    await expect(title).toContainText('九巴即時到站')
   })
 
   test('should show CTB landing style when CTB is active', async ({ page }) => {
@@ -83,7 +83,7 @@ test.describe('Frontpage — Switch Language', () => {
     await expect(langBtn).toHaveText('繁')
 
     const title = page.locator('.landing-title')
-    await expect(title).toContainText('巴士動態')
+    await expect(title).toContainText('九巴即時到站')
   })
 
   test('should cycle language: 繁 → EN → 简 → 繁', async ({ page }) => {
@@ -105,7 +105,7 @@ test.describe('Frontpage — Switch Language', () => {
     await expect(langBtn).toHaveText('繁')
 
     const titleTc = page.locator('.landing-title')
-    await expect(titleTc).toContainText('巴士動態')
+    await expect(titleTc).toContainText('九巴即時到站')
   })
 
   test('should update subtitle text when language changes', async ({ page }) => {

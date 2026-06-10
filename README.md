@@ -2,7 +2,7 @@
   <br/>
   <img src="icon.svg" alt="HK Bus Tracker" width="80" />
   <h1>🚌 HK Bus Tracker</h1>
-  <h3>香港巴士動態 — 即時九巴、龍運及城巴路線預計到站時間</h3>
+  <h3>九巴即時到站 — 即時九巴、龍運及城巴路線預計到站時間</h3>
   <p>
     <strong>Real-time KMB, LWB & CTB Bus Arrival Tracking</strong>
   </p>

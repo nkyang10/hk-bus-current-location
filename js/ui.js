@@ -17,7 +17,7 @@ class UIManager {
     const isCtb = co === 'ctb'
     const title = isCtb
       ? this.lang.t('城巴即時到站', 'CTB Bus Tracker', '城巴即时到站')
-      : this.lang.t('香港巴士動態', 'HK Bus Tracker', '香港巴士动态')
+      : this.lang.t('九巴即時到站', 'KMB Bus Tracker', '九巴即时到站')
     const sub = isCtb
       ? this.lang.t('即時查詢城巴路線預計到站時間', 'Real-time CTB bus arrival estimates', '即时查询城巴路线预计到站时间')
       : this.lang.t('即時查詢九巴及龍運路線預計到站時間', 'Real-time KMB & LWB bus arrival estimates', '即时查询九巴及龙运路线预计到站时间')
