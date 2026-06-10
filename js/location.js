@@ -130,7 +130,7 @@ class LocationManager {
         { lon: to.lng, lat: to.lat, search_radius: 100, type: 'break' }
       ],
       costing: 'pedestrian',
-      directions_options: { units: 'meters' }
+      directions_options: { units: 'kilometers' }
     }
     try {
       const res = await fetch(url, {
@@ -144,9 +144,10 @@ class LocationManager {
       }
       const data = await res.json()
       if (data.trip && data.trip.legs && data.trip.legs.length > 0) {
+        const leg = data.trip.legs[0]
         return {
-          distance: data.trip.legs[0].summary.length,
-          duration: data.trip.legs[0].summary.time
+          distance: Math.round(leg.summary.length * 1000),
+          duration: leg.summary.time
         }
       }
       Logger.warn('LOC', 'Valhalla: no route found')
@@ -164,7 +165,7 @@ class LocationManager {
         { lon: to.lng, lat: to.lat, search_radius: 100, type: 'break' }
       ],
       costing: 'pedestrian',
-      directions_options: { units: 'meters' }
+      directions_options: { units: 'kilometers' }
     }
     try {
       const res = await fetch(url, {

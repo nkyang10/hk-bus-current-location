@@ -287,7 +287,7 @@ class MapManager {
         { lon: to.lng, lat: to.lat, search_radius: 100, type: 'break' }
       ],
       costing: 'pedestrian',
-      directions_options: { units: 'meters' }
+      directions_options: { units: 'kilometers' }
     }
     return fetch(url, {
       method: 'POST',
