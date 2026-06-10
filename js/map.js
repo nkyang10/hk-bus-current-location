@@ -25,11 +25,13 @@ class MapManager {
     const $view = $('#mapView')
     if ($view.length === 0) return
 
-    // Show container first so Leaflet can measure dimensions
     $view.show()
 
     if (!this._map) {
-      this._map = L.map('routeMap')
+      this._map = L.map('routeMap', {
+        center: [22.3, 114.2],
+        zoom: 12,
+      })
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         maxZoom: 19,
@@ -48,7 +50,11 @@ class MapManager {
       this._drawBuses(busPositions, stops)
       this._fitBounds(stops)
     } catch (err) {
-      Logger.warn('MAP', 'Render failed: ' + err.message)
+      Logger.warn('MAP', 'Render failed: ' + (err.message || err))
+      // Fallback: set map to HK center if fitBounds failed
+      if (this._map && this._map.getZoom() === undefined) {
+        this._map.setView([22.3, 114.2], 11)
+      }
     }
 
     // Ensure map is properly sized after layers added
