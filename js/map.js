@@ -43,21 +43,16 @@ class MapManager {
     try {
       const geometry = await this._fetchRouteGeometry(stops)
       if (geometry) {
-        this._drawRoute(geometry, isCtb)
+        try { this._drawRoute(geometry, isCtb) } catch (e) { Logger.warn('MAP', 'Route draw: ' + e.message) }
       }
-
-      this._drawStops(stops)
-      this._drawBuses(busPositions, stops)
-      this._fitBounds(stops)
+      try { this._drawStops(stops) } catch (e) { Logger.warn('MAP', 'Stops draw: ' + e.message) }
+      try { this._drawBuses(busPositions, stops) } catch (e) { Logger.warn('MAP', 'Buses draw: ' + e.message) }
     } catch (err) {
-      Logger.warn('MAP', 'Render failed: ' + (err.message || err))
-      // Fallback: set map to HK center if fitBounds failed
-      if (this._map && this._map.getZoom() === undefined) {
-        this._map.setView([22.3, 114.2], 11)
-      }
+      Logger.warn('MAP', 'Other error: ' + err.message)
     }
 
-    // Ensure map is properly sized after layers added
+    this._fitBoundsSafe(stops)
+
     setTimeout(() => this._map.invalidateSize(), 150)
   }
 
@@ -147,11 +142,19 @@ class MapManager {
     })
   }
 
-  _fitBounds(stops) {
-    const valid = stops.filter(s => s.lat != null && s.long != null && isFinite(s.lat) && isFinite(s.long))
-    if (valid.length === 0) return
-    const bounds = L.latLngBounds(valid.map(s => [s.lat, s.long]))
-    this._map.fitBounds(bounds, { padding: [50, 50] })
+  _fitBoundsSafe(stops) {
+    try {
+      const lats = stops.filter(s => s.lat != null && isFinite(s.lat)).map(s => s.lat)
+      const lngs = stops.filter(s => s.long != null && isFinite(s.long)).map(s => s.long)
+      if (lats.length === 0 || lngs.length === 0) { this._map.setView([22.3, 114.2], 11); return }
+      const bounds = L.latLngBounds(
+        [Math.min(...lats), Math.min(...lngs)],
+        [Math.max(...lats), Math.max(...lngs)],
+      )
+      this._map.fitBounds(bounds, { padding: [50, 50] })
+    } catch {
+      this._map.setView([22.3, 114.2], 11)
+    }
   }
 
   _stopName(stop, idx) {
