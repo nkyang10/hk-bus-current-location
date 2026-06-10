@@ -1,5 +1,4 @@
 const APP_VERSION = '2.1.0'
-const APP_COMMIT = '7f06169'
 
 /**
  * BusTrackerApp — main application controller.

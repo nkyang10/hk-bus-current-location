@@ -35,7 +35,7 @@ class UIManager {
             <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
           <div class="header-right">
-            <span class="version-badge">v${APP_VERSION} · ${APP_COMMIT}</span>
+            <span class="version-badge">v${APP_VERSION}</span>
             <span class="loc-indicator loc-indicator-unknown" id="locIndicator" title="Location not requested">⊙</span>
             <button class="lang-btn" id="langBtn">${this.lang.label}</button>
           </div>
@@ -86,7 +86,7 @@ class UIManager {
             </div>
             <div class="route-dest-row">
               <span class="route-dest" id="routeDest">—</span>
-              <span class="version-badge version-badge-header">v${APP_VERSION} · ${APP_COMMIT}</span>
+              <span class="version-badge version-badge-header">v${APP_VERSION}</span>
               <span class="loc-indicator loc-indicator-unknown" id="locIndicator" title="Location not requested">⊙</span>
             </div>
           </div>
@@ -205,7 +205,7 @@ class UIManager {
         ? stop.serviceTypes.map(s => `<span class="svc-tag">${s}</span>`).join('')
         : ''
 
-      html += `<div class="stop-row" data-seq="${i + 1}" data-stop-id="${stop.stopId}" data-lat="${stop.lat}" data-long="${stop.long}">`
+      html += `<div class="stop-row" data-seq="${i + 1}" data-stop-id="${stop.stopId}" data-lat="${stop.lat != null ? stop.lat : ''}" data-long="${stop.long != null ? stop.long : ''}">`
       html += `<div class="stop-seq-col"><span class="stop-seq ${etaText.cls}">${i + 1}</span>`
       if (i < stops.length - 1) html += '<div class="stop-line"></div>'
       html += '</div>'
@@ -259,7 +259,7 @@ class UIManager {
   }
 
   bindLocationEvents(app) {
-    $(document).on('click', '#locIndicator', function () {
+    $(document).on('click', '.loc-indicator', function () {
       if (app._locationReady) return
       $(this).text('...')
       app.locMgr.retry().then((granted) => {
@@ -334,7 +334,7 @@ class UIManager {
       try {
         const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
         let html
-        if (result) {
+        if (result && result.distance > 0) {
           const dist = result.distance < 1000
             ? Math.round(result.distance) + 'm'
             : (result.distance / 1000).toFixed(1) + 'km'
@@ -345,8 +345,12 @@ class UIManager {
         if (html) {
           this._walkCache[cacheKey] = html
           $slot.html(html)
+        } else {
+          $slot.html('')
         }
-      } catch {}
+      } catch {
+        $slot.html('')
+      }
     })
     await Promise.all(fetchPromises)
   }
