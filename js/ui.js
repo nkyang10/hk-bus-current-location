@@ -150,6 +150,17 @@ class UIManager {
     $(`#boundToggle .bound-btn[data-bound="${bound}"]`).addClass('active')
   }
 
+  updateBoundToggleDestinations(info, otherInfo, currentBound) {
+    if (!info) return
+    const dest = this.lang.t(info.dest_tc, info.dest_en, info.dest_sc)
+    $(`#boundToggle .bound-btn[data-bound="${currentBound}"]`).text(dest)
+    if (otherInfo) {
+      const otherDest = this.lang.t(otherInfo.dest_tc, otherInfo.dest_en, otherInfo.dest_sc)
+      const otherBound = currentBound === 'O' ? 'I' : 'O'
+      $(`#boundToggle .bound-btn[data-bound="${otherBound}"]`).text(otherDest)
+    }
+  }
+
   updateRouteHeaderSvc(types) {
     const existing = $('#routeHeader .svc-badge')
     if (types && types.length > 1) {

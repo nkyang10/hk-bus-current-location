@@ -11,6 +11,7 @@ class RouteManager {
   constructor(api) {
     this.api = api
     this._routeInfo = null
+    this._otherRouteInfo = null
     this._stops = []
     this._serviceTypes = []
     this._abort = null
@@ -19,6 +20,7 @@ class RouteManager {
   }
 
   getRouteInfo() { return this._routeInfo }
+  getOtherBoundRouteInfo() { return this._otherRouteInfo }
   getStops() { return this._stops }
   getServiceTypes() { return this._serviceTypes }
 
@@ -33,6 +35,7 @@ class RouteManager {
       Logger.route('CACHE', key)
       const c = this._cache[key]
       this._routeInfo = c.routeInfo
+      this._otherRouteInfo = c.otherRouteInfo || null
       this._stops = c.stops
       this._serviceTypes = c.serviceTypes
       return
@@ -80,6 +83,23 @@ class RouteManager {
 
     const primary = details[0]
     this._routeInfo = primary.routeData
+
+    this._otherRouteInfo = null
+    const otherBound = bound === 'O' ? 'I' : 'O'
+    try {
+      if (this._isCtb) {
+        const routeList = await this.api.fetchRouteList()
+        const otherEntry = (routeList.data || []).find(r => r.route === route && r.bound === otherBound)
+        if (otherEntry) this._otherRouteInfo = otherEntry
+      } else {
+        const svc = types[0] || '1'
+        const otherRes = await this.api.fetchRoute(route, otherBound, svc)
+        if (otherRes && otherRes.data) this._otherRouteInfo = otherRes.data
+      }
+    } catch {
+      Logger.route('OTHER_BOUND_FAIL', `Could not load ${route} bound ${otherBound}`)
+      this._otherRouteInfo = null
+    }
 
     const stopSet = new Map()
     const svcMap = {}
@@ -132,7 +152,7 @@ class RouteManager {
 
     if (signal.aborted) return
     this._stops = stopDetails
-    this._cache[key] = { routeInfo: this._routeInfo, stops: this._stops, serviceTypes: this._serviceTypes }
+    this._cache[key] = { routeInfo: this._routeInfo, otherRouteInfo: this._otherRouteInfo, stops: this._stops, serviceTypes: this._serviceTypes }
 
     Logger.route('DONE', `${route} bound=${bound} (${this._isCtb ? 'CTB' : 'KMB'}) → ${this._stops.length} stops across ${types.length} types`)
   }

@@ -189,6 +189,8 @@ class BusTrackerApp {
 
       this.ui.updateRouteInfo(info)
       this.ui.updateBoundToggle(bound)
+      const otherInfo = this.routeMgr.getOtherBoundRouteInfo()
+      this.ui.updateBoundToggleDestinations(info, otherInfo, bound)
       this.ui.updateRouteHeaderSvc(types)
       this.ui.updateRouteCompany(this._company)
       this.ui.renderStopList(stops, this.etaMgr.getEtaMap(), this._company === 'ctb')
