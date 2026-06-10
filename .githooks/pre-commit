@@ -1,0 +1,15 @@
+#!/bin/bash
+# Auto-update APP_VERSION hash before each commit
+set -e
+
+HASH=$(git rev-parse --short=8 HEAD)
+FILE="js/app.js"
+
+if [ ! -f "$FILE" ]; then
+  exit 0
+fi
+
+sed -i "s/^const APP_VERSION = '.*'/const APP_VERSION = '2.1.0 ($HASH)'/" "$FILE"
+git add "$FILE"
+
+echo "pre-commit: APP_VERSION → 2.1.0 ($HASH)"
