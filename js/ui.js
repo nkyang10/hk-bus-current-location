@@ -96,6 +96,7 @@ class UIManager {
             <button class="company-btn ${isCtb ? 'active' : ''}" data-company="ctb">${this.lang.t('城巴 CTB', 'CTB', '城巴 CTB')}</button>
           </div>
           <button class="lang-btn" id="langBtn">${this.lang.label}</button>
+          <button class="view-toggle-btn" id="viewToggleBtn">🗺️</button>
         </div>
 
         <div class="bound-toggle" id="boundToggle">
@@ -108,7 +109,12 @@ class UIManager {
           <span>${this.lang.t('更新中...', 'Updating...', '更新中...')}</span>
         </div>
 
-        <div class="stop-list" id="stopList"></div>
+        <div class="view-container">
+          <div class="stop-list" id="stopList"></div>
+          <div class="map-view" id="mapView" style="display:none">
+            <div id="routeMap"></div>
+          </div>
+        </div>
 
         <div class="route-footer">
           <p>${routeDataSrc} | ${this.lang.t('每30秒自動更新', 'Auto-refresh every 30s', '每30秒自动更新')}</p>
@@ -121,6 +127,7 @@ class UIManager {
       const b = $(e.currentTarget).data('bound')
       $(document).trigger('nav:bound', [b])
     })
+    $('#viewToggleBtn').on('click', () => $(document).trigger('view:toggle'))
   }
 
   updateRouteCompany(company) {

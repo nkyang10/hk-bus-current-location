@@ -10,6 +10,7 @@ class BusTrackerApp {
     this.routeMgr = new RouteManager(this.api)
     this.etaMgr = new EtaManager(this.api)
     this.ui = new UIManager(this.lang)
+    this.mapMgr = new MapManager()
 
     this._route = ''
     this._bound = 'O'
@@ -119,6 +120,19 @@ class BusTrackerApp {
       else this.ui.openDebugPanel()
     })
 
+    $(document).on('view:toggle', async () => {
+      if (this.mapMgr.isVisible()) {
+        this.mapMgr.hide()
+        $('#viewToggleBtn').text('🗺️')
+      } else {
+        const stops = this.routeMgr.getStops()
+        const busPositions = this.ui._getBusPositions(stops, this.etaMgr.getEtaMap())
+        await this.mapMgr.load(stops, busPositions, this._company === 'ctb')
+        this.mapMgr.show()
+        $('#viewToggleBtn').text('📋')
+      }
+    })
+
     $(document).on('click', '.company-btn', (e) => {
       const co = $(e.target).closest('.company-btn').data('company')
       if (co) this._switchCompany(co)
@@ -179,6 +193,8 @@ class BusTrackerApp {
 
     this.ui.renderRouteView(route, bound, this._company)
     this._bindRouteEvents()
+    this.mapMgr.hide()
+    $('#viewToggleBtn').text('🗺️')
     const loadingTimer = setTimeout(() => this.ui.showStopListLoading(), 10000)
 
     try {
