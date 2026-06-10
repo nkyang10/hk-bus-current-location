@@ -259,6 +259,12 @@ a { color: #E31837; }
   margin-top: 2px;
   white-space: nowrap;
 }
+.walk-dist-unreliable {
+  color: #9ca3af;
+  background: #f3f4f6;
+  text-decoration: line-through;
+  font-style: italic;
+}
 .stop-row.nearest-stop {
   background: #f0f9ff;
 }

@@ -240,24 +240,24 @@ class MapManager {
   }
 
   _fetchWalkingRoute(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?geometries=geojson&overview=full`
+    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
     return fetch(url)
       .then(res => {
-        if (!res.ok) {
-          Logger.warn('MAP', `OSRM HTTP error: ${res.status}`)
-          return null
-        }
-        return res.json()
+        if (!res.ok) { Logger.warn('MAP', `BRouter HTTP ${res.status}`); return null }
+        return res.text()
       })
-      .then(data => {
-        if (!data || !data.routes || data.routes.length === 0) {
-          Logger.warn('MAP', 'OSRM: no route found')
-          return null
+      .then(text => {
+        if (!text) return null
+        let data
+        try { data = JSON.parse(text) } catch { return null }
+        if (data.features && data.features.length > 0) {
+          return data.features[0].geometry
         }
-        return data.routes[0].geometry
+        Logger.warn('MAP', 'BRouter: no features')
+        return null
       })
       .catch(err => {
-        Logger.warn('MAP', `OSRM fetch error: ${err.message}`)
+        Logger.warn('MAP', `BRouter error: ${err.message}`)
         return null
       })
   }

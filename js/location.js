@@ -87,42 +87,52 @@ class LocationManager {
   }
 
   async fetchWalkingDistance(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=false`
+    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
     try {
-      const res = await fetch(url)
+      const res = await fetch(url, { mode: 'cors' })
       if (!res.ok) {
-        Logger.warn('LOC', `OSRM HTTP error: ${res.status}`)
+        Logger.warn('LOC', `BRouter HTTP ${res.status}: ${res.statusText}`)
         return null
       }
-      const data = await res.json()
-      if (data.routes && data.routes.length > 0) {
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch {
+        Logger.warn('LOC', `BRouter not JSON: ${text.slice(0,200)}`)
+        return null
+      }
+      if (data.features && data.features.length > 0) {
+        const props = data.features[0].properties
         return {
-          distance: Math.round(data.routes[0].distance),
-          duration: Math.round(data.routes[0].distance / 80 * 60)
+          distance: Math.round(props['track-length'] || props['distance'] || 0),
+          duration: Math.round((props['total-time'] || props['time'] || 0) / 60)
         }
       }
-      Logger.warn('LOC', 'OSRM: no route found')
+      Logger.warn('LOC', 'BRouter: no features')
     } catch (err) {
-      Logger.warn('LOC', `Walking distance fetch failed: ${err.message}`)
+      Logger.warn('LOC', `BRouter error: ${err.message}`)
     }
     return null
   }
 
   async fetchWalkingRoute(from, to) {
-    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?geometries=geojson&overview=full`
+    const url = `https://brouter.de/brouter?lonlats=${from.lng},${from.lat}|${to.lng},${to.lat}&profile=foot&format=geojson&nogil=1`
     try {
       const res = await fetch(url)
       if (!res.ok) {
-        Logger.warn('LOC', `OSRM HTTP error: ${res.status}`)
+        Logger.warn('LOC', `BRouter HTTP ${res.status}`)
         return null
       }
-      const data = await res.json()
-      if (data.routes && data.routes.length > 0) {
-        return data.routes[0].geometry
+      const text = await res.text()
+      let data
+      try { data = JSON.parse(text) } catch {
+        Logger.warn('LOC', 'BRouter not JSON')
+        return null
       }
-      Logger.warn('LOC', 'OSRM: no route found')
+      if (data.features && data.features.length > 0) {
+        return data.features[0].geometry
+      }
     } catch (err) {
-      Logger.warn('LOC', `Walking route fetch failed: ${err.message}`)
+      Logger.warn('LOC', `BRouter error: ${err.message}`)
     }
     return null
   }

@@ -335,12 +335,15 @@ class UIManager {
         const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
         let html
         if (result && result.distance > 0) {
+          const unreliable = result.distance > n.distance * 2
           const dist = result.distance < 1000
             ? Math.round(result.distance) + 'm'
             : (result.distance / 1000).toFixed(1) + 'km'
-          const dur = Math.round(result.distance / 80)  // ~5km/h walking pace
+          const dur = Math.round(result.distance / 80)
           const durLabel = this.lang.t(`${dur}分鐘`, `${dur}min`, `${dur}分钟`)
-          html = `<span class="walk-dist">🚶&nbsp;${dist}&nbsp;·&nbsp;${durLabel}</span>`
+          const cls = unreliable ? 'walk-dist walk-dist-unreliable' : 'walk-dist'
+          const warn = unreliable ? '&nbsp;⚠️' : ''
+          html = `<span class="${cls}">🚶&nbsp;${dist}&nbsp;·&nbsp;${durLabel}${warn}</span>`
         }
         if (html) {
           this._walkCache[cacheKey] = html
