@@ -314,10 +314,11 @@ class UIManager {
     if (!this._walkCache) this._walkCache = {}
 
     // Show cached values immediately, or "..." for new ones
+    const userKey = `${Math.round(userPos.lat*100)},${Math.round(userPos.lng*100)}`
     for (const n of nearest) {
       const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
       if ($slot.length === 0) continue
-      const cacheKey = `${n.stop.lat},${n.stop.long}`
+      const cacheKey = `${userKey}-${n.stop.lat},${n.stop.long}`
       if (this._walkCache[cacheKey]) {
         $slot.html(this._walkCache[cacheKey])
       } else {
@@ -329,7 +330,7 @@ class UIManager {
     const fetchPromises = nearest.map(async (n) => {
       const $slot = $(`.walk-dist-slot[data-seq="${n.stop.seq}"]`)
       if ($slot.length === 0) return
-      const cacheKey = `${n.stop.lat},${n.stop.long}`
+      const cacheKey = `${userKey}-${n.stop.lat},${n.stop.long}`
       try {
         const result = await this._locMgr.fetchWalkingDistance(userPos, { lat: n.stop.lat, lng: n.stop.long })
         let html
@@ -337,7 +338,7 @@ class UIManager {
           const dist = result.distance < 1000
             ? Math.round(result.distance) + 'm'
             : (result.distance / 1000).toFixed(1) + 'km'
-          const dur = Math.round(result.duration / 60)
+          const dur = Math.round(result.distance / 80)  // ~5km/h walking pace
           const durLabel = this.lang.t(`${dur}分鐘`, `${dur}min`, `${dur}分钟`)
           html = `<span class="walk-dist">🚶&nbsp;${dist}&nbsp;·&nbsp;${durLabel}</span>`
         }
