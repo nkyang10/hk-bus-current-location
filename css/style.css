@@ -134,7 +134,7 @@ a { color: #E31837; }
   border-bottom: 1px solid #e5e7eb;
 }
 .bus-indicator-row .stop-seq-col {
-  min-width: 28px; display: flex; align-items: center; justify-content: center;
+  flex: 1; display: flex; align-items: center; justify-content: center;
 }
 .bus-icon {
   font-size: 28px; line-height: 1;
