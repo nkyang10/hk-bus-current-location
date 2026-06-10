@@ -126,8 +126,8 @@ class LocationManager {
     const url = 'https://valhalla1.openstreetmap.de/route'
     const body = {
       locations: [
-        { lon: from.lng, lat: from.lat },
-        { lon: to.lng, lat: to.lat }
+        { lon: from.lng, lat: from.lat, search_radius: 50, type: 'break' },
+        { lon: to.lng, lat: to.lat, search_radius: 50, type: 'break' }
       ],
       costing: 'pedestrian',
       directions_options: { units: 'meters' }
@@ -160,8 +160,8 @@ class LocationManager {
     const url = 'https://valhalla1.openstreetmap.de/route'
     const body = {
       locations: [
-        { lon: from.lng, lat: from.lat },
-        { lon: to.lng, lat: to.lat }
+        { lon: from.lng, lat: from.lat, search_radius: 50, type: 'break' },
+        { lon: to.lng, lat: to.lat, search_radius: 50, type: 'break' }
       ],
       costing: 'pedestrian',
       directions_options: { units: 'meters' }
