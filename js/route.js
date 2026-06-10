@@ -90,7 +90,18 @@ class RouteManager {
       if (this._isCtb) {
         const routeList = await this.api.fetchRouteList()
         const otherEntry = (routeList.data || []).find(r => r.route === route && r.bound === otherBound)
-        if (otherEntry) this._otherRouteInfo = otherEntry
+        if (otherEntry) {
+          this._otherRouteInfo = otherEntry
+        } else if (this._routeInfo) {
+          this._otherRouteInfo = {
+            dest_tc: this._routeInfo.orig_tc,
+            dest_en: this._routeInfo.orig_en,
+            dest_sc: this._routeInfo.orig_sc,
+            orig_tc: this._routeInfo.dest_tc,
+            orig_en: this._routeInfo.dest_en,
+            orig_sc: this._routeInfo.dest_sc,
+          }
+        }
       } else {
         const svc = types[0] || '1'
         const otherRes = await this.api.fetchRoute(route, otherBound, svc)
