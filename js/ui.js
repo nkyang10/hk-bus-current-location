@@ -108,12 +108,7 @@ class UIManager {
           <span>${this.lang.t('更新中...', 'Updating...', '更新中...')}</span>
         </div>
 
-        <div class="stop-list" id="stopList">
-          <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p>${this.lang.t('載入中...', 'Loading...', '加载中...')}</p>
-          </div>
-        </div>
+        <div class="stop-list" id="stopList"></div>
 
         <div class="route-footer">
           <p>${routeDataSrc} | ${this.lang.t('每30秒自動更新', 'Auto-refresh every 30s', '每30秒自动更新')}</p>

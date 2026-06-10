@@ -179,10 +179,11 @@ class BusTrackerApp {
 
     this.ui.renderRouteView(route, bound, this._company)
     this._bindRouteEvents()
-    this.ui.showStopListLoading()
+    const loadingTimer = setTimeout(() => this.ui.showStopListLoading(), 10000)
 
     try {
       await this.routeMgr.load(route, bound)
+      clearTimeout(loadingTimer)
 
       const info = this.routeMgr.getRouteInfo()
       const stops = this.routeMgr.getStops()
@@ -200,6 +201,7 @@ class BusTrackerApp {
       this.etaMgr.start(route, bound, types, stopIds)
 
     } catch (err) {
+      clearTimeout(loadingTimer)
       Logger.error('NAV', `${route} failed`, { error: err.message })
       if (err.message === 'NOT_FOUND') {
         this.ui.showError(this.lang.t('路線不存在', 'Route not found', '路线不存在'))
